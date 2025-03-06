@@ -1,0 +1,17 @@
+image: atlassian/default-image:latest
+
+pipelines:
+  branches:
+    main:
+      - step:
+          name: Deploy to Server
+          script:
+            - apt-get update && apt-get install -y sshpass
+            - echo "Deploying to server..."
+            - sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "
+                [ -d backend ] &&
+                cd backend &&
+                git pull origin main &&
+                docker compose down &&
+                docker compose up --build -d
+              "

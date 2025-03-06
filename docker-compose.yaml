@@ -1,0 +1,98 @@
+
+services:
+  web:
+    build: .
+    container_name: codstra_web
+    command: python manage.py runserver 0.0.0.0:8000
+    restart: always
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    links:
+      - db
+      - redis
+    environment:
+      - CELERY_BROKER=redis://redis:6379/0
+      - CELERY_BACKEND=redis://redis:6379/0
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASS}@db:5432/${POSTGRES_DB}
+    env_file:
+      - .env
+    stdin_open: true
+    tty: true
+    networks:
+      - odoo_proxy_network
+
+  redis:
+    image: "redis:alpine"
+    container_name: codstra_redis
+    networks:
+      - odoo_proxy_network
+
+
+  db:
+    # image: postgis/postgis:13-3.1
+    image: postgres:13
+    container_name: codstra_postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASS}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - odoo_proxy_network
+
+  celery:
+    build: .
+    # command: celery --app=CORE worker -l INFO
+    command: celery -A CORE.celery_app worker -l info
+    volumes:
+        - .:/app
+    environment:
+        - DEBUG=1
+        - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 [::1]
+        - CELERY_BROKER=redis://redis:6379/0
+        - CELERY_BACKEND=redis://redis:6379/0
+    depends_on:
+        - web
+        - redis
+    networks:
+      - odoo_proxy_network
+
+  celery_beat:
+    build: .
+    command:
+      [
+        'celery',
+        '--app=CORE',
+        'beat',
+        '--scheduler=django_celery_beat.schedulers:DatabaseScheduler',
+        '--loglevel=INFO',
+      ]
+    volumes:
+      - ./:/app
+    depends_on:
+      - web
+      - db
+      - redis
+    networks:
+      - odoo_proxy_network
+
+  cache:
+    image: redis:alpine
+    container_name: redis_cache
+    restart: always
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  odoo_proxy_network:
+    external: true

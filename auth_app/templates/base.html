@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap" rel="stylesheet">
+    <title>Diatarify</title>
+
+    <style>
+        .container{
+            max-width:750px;
+            margin:auto;
+            font-family: "Bricolage Grotesque", sans-serif;
+        }
+
+        .header-logo{
+            background: #E2F7DF;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            padding:50px;
+        }
+
+        .body{
+            padding:30px
+        }
+        .body .footer{
+            padding: 30px;
+            background: #476162;
+            border-radius:15px;
+            color: #fff;
+        }
+
+        .body .footer p{
+            text-align:center;
+        }
+
+        .body .footer a{
+            color: #F3FFF2;
+        }
+
+        .body .footer .socials{
+            display:flex;
+            justify-content:center;
+            align-items: center;
+            gap:10px;
+        }
+
+        .button{
+            margin-bottom:20px;
+        }
+        .button a{
+            padding: 10px 20px;
+            background: #4DC740;
+            color: #fff;
+            border-radius: 20px;
+            text-decoration: none;
+            display:inline-block;
+        }
+
+        .code{
+            padding: 5px 10px;
+            border-radius: 5px;
+            color: #000;
+            font-size: 2em;
+            background:rgb(224, 224, 224);
+        }
+
+
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <div class="body">
+            {% block content %}
+            
+            {% endblock content %}
+            
+        </div>
+    </div>
+</body>
+</html>

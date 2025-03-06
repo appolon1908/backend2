@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <h2>Career Application</h2>
+    <p>Hi {{ full_name }}, this is to inform you that you have an application for {{career}}</p>
+
+    <p>Applicant's details</p>
+
+    <ul>
+        <li>Full Name: {{ full_name }}</li>
+        <li>Email: {{ email }}</li>
+        <li>City: {{ city }}</li>
+        <li>State: {{ state }}</li>
+        <li>Country: {{ country }}</li>
+        <li>Resume: <a href="{{ resume }}">{{ resume }}</a></li>
+        <li>User ID: <a href="{{user_id}}">{{user_id}}</a></li>
+    </ul>
+</body>
+</html>
