@@ -1,5 +1,6 @@
 import uuid
 from django.db import models
+from django.utils import timezone
 
 
 def generate_id():
@@ -44,9 +45,31 @@ class ContactUs(models.Model):
     email = models.EmailField(max_length=256)
     company_size = models.CharField(max_length=20, null=True, blank=True)
     message = models.TextField()
+    odoo_sync_status = models.CharField(max_length=16, default="pending", db_index=True)
+    odoo_record_id = models.CharField(max_length=128, blank=True)
+    odoo_last_error = models.TextField(blank=True)
+    odoo_synced_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
     
     def __str__(self):
         return self.full_name
+
+
+class ElectronicBillingInterest(models.Model):
+    full_name = models.CharField(max_length=256)
+    email = models.EmailField(max_length=256)
+    phone = models.CharField(max_length=64)
+    uses_erp = models.BooleanField()
+    consent_to_contact = models.BooleanField()
+    source = models.CharField(max_length=64, default="electronic-billing")
+    odoo_sync_status = models.CharField(max_length=16, default="pending", db_index=True)
+    odoo_record_id = models.CharField(max_length=128, blank=True)
+    odoo_last_error = models.TextField(blank=True)
+    odoo_synced_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.full_name} ({self.email})"
     
     
 
@@ -87,6 +110,11 @@ class TaxPayer(models.Model):
     tax_payer_number = models.CharField(max_length=256, null=True, blank=True)
     tax_payer_sector = models.CharField(max_length=256, null=True, blank=True)
     tax_payer_province = models.CharField(max_length=256, null=True, blank=True)
+    odoo_sync_status = models.CharField(max_length=16, default="pending", db_index=True)
+    odoo_record_id = models.CharField(max_length=128, blank=True)
+    odoo_last_error = models.TextField(blank=True)
+    odoo_synced_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
     
     
 

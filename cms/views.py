@@ -6,6 +6,7 @@ from .models import (
             TaxPayer,
             CaseStudy, 
             ContactUs, 
+            ElectronicBillingInterest,
             Testimonial,
             HeaderTitle, 
             TaxPayerMedia,
@@ -16,6 +17,7 @@ from .serializers import (
             TaxPayerSerializer,
             CaseStudySerializer, 
             ContactUsSerializer, 
+            ElectronicBillingInterestSerializer,
             TestimonialSerializer,
             HeaderTitleSerializer, 
             )
@@ -29,6 +31,7 @@ from notification.service import EmailService
 
 from rest_framework.decorators import action
 import requests
+from .odoo import sync_billing_interest, sync_contact, sync_taxpayer
      
 
 
@@ -215,37 +218,6 @@ class ContactUsViewSet(ViewSet):
     def get_queryset(self):
         return super().get_queryset()
     
-    #Part to odoo
-    def send_to_odoo(self, data):
-        odoo_url = f'{settings.ODOO_BASE_URL}/crm/lead/create'
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {settings.ODOO_API_TOKEN}'
-        }
-
-        
-        odoo_data = {
-            "full_name": data.get("full_name"),
-            "email": data.get("email"),
-            "company_size": data.get("company_size"),
-            "message": data.get("message"),
-            
-        }
-
-        try:
-            response = requests.post(odoo_url, headers=headers, json=odoo_data, timeout=10)
-
-            if response.status_code == 200:
-                return response.json()
-            else:
-                print(f"Error sending data to Odoo: {response.status_code} - {response.text}")
-                return {"error": f"Error sending data to Odoo: {response.status_code} - {response.text}"}
-
-        except requests.exceptions.RequestException as e:
-            print(f"Error connecting to Odoo: {e}")
-            return {"error": f"Error connecting to Odoo: {e}"}
-    
-
     @swagger_auto_schema(
         operation_description="Contact Us form",
         operation_summary="Contact Us form",
@@ -256,17 +228,8 @@ class ContactUsViewSet(ViewSet):
         serializer = ContactUsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        contact = ContactUs.objects.create(
-            **serializer.validated_data
-        )
-
-        odoo_response = self.send_to_odoo(request.data)
-
-        if "error" in odoo_response:
-            return Response({
-                "message": "Thank you for contacting us. However, there was an issue sending your request to Odoo.",
-                "odoo_error": odoo_response
-            }, status=status.HTTP_400_BAD_REQUEST)
+        contact = serializer.save()
+        sync_contact(contact)
         
         # send email to our mail address
         EmailService.send_async(
@@ -282,6 +245,26 @@ class ContactUsViewSet(ViewSet):
         )
         
         return Response({"message": "Thank you for contacting us"}, status=status.HTTP_201_CREATED)
+
+
+class ElectronicBillingInterestViewSet(ViewSet):
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_description="Electronic billing consultation form",
+        operation_summary="Request an electronic billing consultation",
+        tags=["electronic-billing"],
+        request_body=ElectronicBillingInterestSerializer,
+    )
+    def create(self, request):
+        serializer = ElectronicBillingInterestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        interest = serializer.save()
+        sync_billing_interest(interest)
+        return Response(
+            {"message": "Thank you. A Codestra specialist will contact you."},
+            status=status.HTTP_201_CREATED,
+        )
     
     @swagger_auto_schema(
         operation_description="Contact Us",
@@ -530,40 +513,18 @@ class TaxPayerViewSet(ViewSet):
         # return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
-        # Small correction for this enpoint, to adapt it correctly to the odoo flow.
         files = request.FILES.getlist('media_files')
         serializer = TaxPayerSerializer(data=request.data)
-
-        #odoo part.
-        if serializer.is_valid():
-            try:
-                with transaction.atomic():  
-                    taxpayer = serializer.save()
-
-                   
-                    if len(files) > 5:
-                        return Response({"error": "You can only upload a maximum of 5 files"}, status=status.HTTP_400_BAD_REQUEST)
-
-                    
-                    media_objects = [
-                        TaxPayerMedia(taxpayer=taxpayer, media_file=file) for file in files
-                    ]
-                    TaxPayerMedia.objects.bulk_create(media_objects)
-
-                   
-                    odoo_response = self.send_to_odoo(request, request.data)
-
-                    if odoo_response:
-                       
-                        return Response({"form_data": serializer.data, "odoo_response": odoo_response}, status=status.HTTP_201_CREATED)
-                    else:
-                       
-                        raise Exception("Error sending data to Odoo.")  
-            except Exception as e:
-                
-                return Response({"error": f"Unexpected error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        return Response({"error": "Invalid data."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        if len(files) > 5:
+            return Response({"error": "You can only upload a maximum of 5 files"}, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            taxpayer = serializer.save()
+            TaxPayerMedia.objects.bulk_create([
+                TaxPayerMedia(taxpayer=taxpayer, media_file=file) for file in files
+            ])
+        sync_taxpayer(taxpayer)
+        return Response({"form_data": TaxPayerSerializer(taxpayer).data}, status=status.HTTP_201_CREATED)
 
 
     @swagger_auto_schema(
@@ -606,34 +567,10 @@ class TaxPayerViewSet(ViewSet):
                 return Response(status=status.HTTP_404_NOT_FOUND)
 
             serializer = TaxPayerSerializer(taxpayer, data=request.data)
-
-            #Odoo part.
-            if serializer.is_valid():
-                try:
-                    
-                    with transaction.atomic():
-                        
-                        taxpayer_updated = serializer.save()
-
-                        
-                        odoo_response = self.send_update_to_odoo(request, request.data)
-
-                        if odoo_response:
-                            
-                            return Response({
-                                "form_data": serializer.data,
-                                "odoo_response": odoo_response
-                            }, status=status.HTTP_200_OK)
-                        else:
-                           
-                            raise Exception("Error sending data to Odoo.")
-
-                except Exception as e:
-                    
-                    return Response({"error": f"Unexpected error: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-            
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            serializer.is_valid(raise_exception=True)
+            taxpayer = serializer.save(odoo_sync_status="pending")
+            sync_taxpayer(taxpayer)
+            return Response({"form_data": serializer.data}, status=status.HTTP_200_OK)
 
 
     

@@ -49,6 +49,8 @@ sitemaps = {
 urlpatterns = [
     path('healthz/', lambda request: JsonResponse({'status': 'ok'}), name='healthz'),
     path('admin/', admin.site.urls),
+    path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0), name='api-docs'),
+    path('api/schema/', schema_view.without_ui(cache_timeout=0), name='api-schema'),
     path('', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('api/blog/', include('blog_app.urls')),
     path('api/auth/', include('auth_app.urls')),
