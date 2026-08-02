@@ -31,7 +31,7 @@ def stripe_webhook(request):
         transaction = Transaction.objects.filter(
             customer_id=payment_intent.get('customer'),
             transaction_id=payment_intent.get('id'),
-            client_secret=payment_intent.get('client_secret')).first()
+        ).first()
         
         if not transaction:
             return HttpResponse(status=400)
@@ -39,12 +39,11 @@ def stripe_webhook(request):
         transaction.status = payment_intent.get('status')
         transaction.payment_status = 'succeeded'
         transaction.save()
-        logger.info(f"PaymentIntent was successful: {payment_intent}")
-        print('PaymentIntent was successful:', payment_intent)
+        logger.info("Stripe payment intent %s succeeded", transaction.transaction_id)
         # Update order status or perform other logic here
 
     elif event['type'] == 'payment_intent.payment_failed':
-        print('Payment failed.')
+        logger.warning("Stripe reported a failed payment intent")
         # Handle failed payment case
 
     return HttpResponse(status=200)

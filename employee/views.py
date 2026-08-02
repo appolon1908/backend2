@@ -5,10 +5,11 @@ from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAdminUser, AllowAny
 from rest_framework.pagination import LimitOffsetPagination
 
 from django.core.files import File
+from django.conf import settings
 
 from drf_yasg.utils import swagger_auto_schema
 
@@ -34,23 +35,25 @@ from cms.serializers import HeaderTitleSerializer
 
 class EmployeeViewset(viewsets.ViewSet):
     serializer_class = EmployeeSerializer
-    permission_classes = [AllowAny]
     pagination_class = LimitOffsetPagination
+
+    def get_permissions(self):
+        return [AllowAny()] if self.action in {'list', 'retrieve'} else [IsAdminUser()]
     
     def get_queryset(self):
         return Employee.objects.filter(is_active=True).order_by('-date_joined')
     
     #Sent to odoo funtions:
     def send_get_all_employees_to_odoo(self):
-        odoo_url = "http://crm.codestra.co/api/employees"
+        odoo_url = f"{settings.ODOO_BASE_URL}/api/employees"
         
         headers = {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer tu_token_de_autenticacion'
+            'Authorization': f'Bearer {settings.ODOO_API_TOKEN}'
         }
 
         try:
-            response = requests.get(odoo_url, headers=headers)
+            response = requests.get(odoo_url, headers=headers, timeout=10)
             if response.status_code == 200:
                 response_data = response.json()
 
@@ -73,15 +76,15 @@ class EmployeeViewset(viewsets.ViewSet):
 
     
     def send_get_employee_by_id_to_odoo(self, employee_id):
-        odoo_url = "http://crm.codestra.co/api/employees?id={employee_id}"
+        odoo_url = f"{settings.ODOO_BASE_URL}/api/employees?id={employee_id}"
         
         headers = {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer autentication_token'
+            'Authorization': f'Bearer {settings.ODOO_API_TOKEN}'
         }
 
         try:
-            response = requests.get(odoo_url, headers=headers)
+            response = requests.get(odoo_url, headers=headers, timeout=10)
             if response.status_code == 200:
                 return response.json()
             else:
@@ -93,14 +96,14 @@ class EmployeeViewset(viewsets.ViewSet):
 
     
     def send_calendar_event_to_odoo(self, employee_id):
-        odoo_url = "http://crm.codestra.co/api/calendar_events?employee_id={employee_id}"
+        odoo_url = f"{settings.ODOO_BASE_URL}/api/calendar_events?employee_id={employee_id}"
         headers = {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer tu_token_de_autenticacion'
+            'Authorization': f'Bearer {settings.ODOO_API_TOKEN}'
         }
 
         try:
-            response = requests.get(odoo_url, headers=headers)
+            response = requests.get(odoo_url, headers=headers, timeout=10)
             if response.status_code == 200:
                 return response.json()
             else:
@@ -112,15 +115,15 @@ class EmployeeViewset(viewsets.ViewSet):
 
    
     def send_add_calendar_event_to_odoo(self, event_data):
-        odoo_url = "https://crm.codestra.co/api/website/add-activity"
+        odoo_url = f"{settings.ODOO_BASE_URL}/api/website/add-activity"
         headers = {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer tu_token_de_autenticacion'
+            'Authorization': f'Bearer {settings.ODOO_API_TOKEN}'
         }
 
         try:
            
-            response = requests.post(odoo_url, headers=headers, json=event_data)
+            response = requests.post(odoo_url, headers=headers, json=event_data, timeout=10)
 
           
             if response.status_code == 200:
@@ -154,9 +157,9 @@ class EmployeeViewset(viewsets.ViewSet):
         # return Response(EmployeeSerializer(blogs, many=True).data)
         odoo_response = self.send_get_all_employees_to_odoo()
 
-        if "error" in odoo_response:
-        #Returns an error response with the appropriate code and message
-            return Response(odoo_response, status=status.HTTP_400_BAD_REQUEST)
+        if not odoo_response or (isinstance(odoo_response, dict) and "error" in odoo_response):
+            employees = self.get_queryset()
+            return Response(EmployeeSerializer(employees, many=True).data, status=status.HTTP_200_OK)
     
     # If everything is fine, return the data obtained
         return Response(odoo_response, status=status.HTTP_200_OK)
@@ -179,8 +182,10 @@ class EmployeeViewset(viewsets.ViewSet):
 
         if odoo_response:
             return Response(odoo_response, status=status.HTTP_200_OK)
-        else:
-            return Response({"error": "Employee not found in Odoo."}, status=status.HTTP_404_NOT_FOUND)
+        employee = Employee.objects.prefetch_related('social_media_profiles').filter(id=pk).first()
+        if not employee:
+            return Response({"error": "Employee not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(EmployeeSerializer(employee).data, status=status.HTTP_200_OK)
     
     @swagger_auto_schema(
         operation_description="Create an employee record form",

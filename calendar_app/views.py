@@ -9,6 +9,7 @@ import requests
 
 from drf_yasg import openapi
 import logging
+from django.conf import settings
 from drf_yasg.utils import swagger_auto_schema
 
 
@@ -31,16 +32,16 @@ class EventViewSet(ViewSet):
             """
         Send GET request to Odoo to get all calendar events for a specific customer.
         """
-            odoo_url = f"http://crm.codestra.co/api/website/view-activity?customer_id={customer_id}"
+            odoo_url = f"{settings.ODOO_BASE_URL}/api/website/view-activity?customer_id={customer_id}"
 
             headers = {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer tu_token_de_autenticacion'
+            'Authorization': f'Bearer {settings.ODOO_API_TOKEN}'
         }
 
             try:
 
-                response = requests.get(odoo_url, headers=headers)
+                response = requests.get(odoo_url, headers=headers, timeout=10)
 
 
                 response.raise_for_status()  

@@ -21,6 +21,7 @@ from .serializers import (
             )
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 from drf_yasg.utils import swagger_auto_schema
 from django.db import transaction
 
@@ -208,16 +209,18 @@ class FAQsViewSet(ViewSet):
     
 
 class ContactUsViewSet(ViewSet):
+    def get_permissions(self):
+        return [AllowAny()] if self.action == 'create' else super().get_permissions()
     
     def get_queryset(self):
         return super().get_queryset()
     
     #Part to odoo
     def send_to_odoo(self, data):
-        odoo_url = 'https://crm.codestra.co/crm/lead/create'
+        odoo_url = f'{settings.ODOO_BASE_URL}/crm/lead/create'
         headers = {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer tu_token_de_autenticacion'
+            'Authorization': f'Bearer {settings.ODOO_API_TOKEN}'
         }
 
         
@@ -230,7 +233,7 @@ class ContactUsViewSet(ViewSet):
         }
 
         try:
-            response = requests.post(odoo_url, headers=headers, json=odoo_data)
+            response = requests.post(odoo_url, headers=headers, json=odoo_data, timeout=10)
 
             if response.status_code == 200:
                 return response.json()
@@ -364,6 +367,8 @@ class LogoViewSet(ViewSet):
     
 
 class TaxPayerViewSet(ViewSet):
+    def get_permissions(self):
+        return [AllowAny()] if self.action == 'create' else super().get_permissions()
 
 
     #Sent taxpayer form to odoo funtion:
@@ -372,12 +377,11 @@ class TaxPayerViewSet(ViewSet):
         This function is responsible for sending the data to Odoo after the taxpayer is created.
         It receives the JSON directly from the request and processes it.
         """
-        odoo_url = 'https://crm.codestra.co/contribuyente/register'  # 
-        odoo_api_key = 'mi-api-key'  # Change this to your Odoo API Key if needed
+        odoo_url = f'{settings.ODOO_BASE_URL}/contribuyente/register'
     
         headers = {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer tu_token_de_autenticacion'  # include a valid token if needed
+            'Authorization': f'Bearer {settings.ODOO_API_TOKEN}'
         }
     
         #Send data to Odoo in JSON format
@@ -413,7 +417,7 @@ class TaxPayerViewSet(ViewSet):
     
        
         try:
-            response = requests.post(odoo_url, headers=headers, json=odoo_data)
+            response = requests.post(odoo_url, headers=headers, json=odoo_data, timeout=10)
             
             if response.status_code == 200:
               
@@ -434,12 +438,11 @@ class TaxPayerViewSet(ViewSet):
         """
         This feature sends the updated data to Odoo.
         """
-        odoo_url = 'https://crm.codestra.co/contribuyente/register'  
-        odoo_api_key = 'my-api-key'  
+        odoo_url = f'{settings.ODOO_BASE_URL}/contribuyente/register'
 
         headers = {
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {odoo_api_key}'
+        'Authorization': f'Bearer {settings.ODOO_API_TOKEN}'
         }
 
         
@@ -475,7 +478,7 @@ class TaxPayerViewSet(ViewSet):
 
       
         try:
-            response = requests.post(odoo_url, headers=headers, json=odoo_data)
+            response = requests.post(odoo_url, headers=headers, json=odoo_data, timeout=10)
         
             if response.status_code == 200:
               
