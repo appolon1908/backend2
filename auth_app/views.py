@@ -3,13 +3,14 @@ from rest_framework import status
 from rest_framework.viewsets import ViewSet
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.pagination import LimitOffsetPagination
 import requests
 from django.db import models
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import check_password
+from django.conf import settings
 
 from .models import User, Visitor, BlacklistedIP
 from .serializers import (
@@ -66,8 +67,11 @@ class AuthViewSet(ViewSet):
             #'profile_picture': profile_picture 
     }
 
-        odoo_api_url = "https://crm.codestra.co/api/website/register"  
-        odoo_response = requests.post(odoo_api_url, json=odoo_data)
+        odoo_api_url = f"{settings.ODOO_BASE_URL}/api/website/register"
+        try:
+            odoo_response = requests.post(odoo_api_url, json=odoo_data, timeout=10)
+        except requests.RequestException:
+            return Response({"message": "Registration service is temporarily unavailable"}, status=502)
 
         if odoo_response.status_code == 200:
             try:
@@ -140,7 +144,7 @@ class AuthViewSet(ViewSet):
         
         user_password = check_password(password, user.password)
         if not user_password:
-            return Response(errors={"error": "incorrect email/password"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "incorrect email/password"}, status=status.HTTP_400_BAD_REQUEST)
         
         token = RefreshToken.for_user(user)
         data = {
@@ -163,7 +167,7 @@ class AuthViewSet(ViewSet):
                 required=['refresh']
             )
     )
-    @action(detail=False, methods=['POST'])
+    @action(detail=False, methods=['POST'], permission_classes=[IsAuthenticated])
     def logout(self, request):
         try:
             refresh_token = request.data["refresh"]
@@ -186,7 +190,7 @@ class AuthViewSet(ViewSet):
         
         users = User.objects.filter(email=serializer.validated_data['email'])
         if not users.exists():
-            return Response({"error": "invalid credentials"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "Reset password instructions will be sent if the account exists"})
         
         
         user = users.first()
@@ -254,7 +258,7 @@ class UserViewSet(ViewSet):
         tags=["Auth"],
     )
     def list(self, request):
-        users = User.objects.all()
+        users = User.objects.all() if request.user.is_staff else User.objects.filter(pk=request.user.pk)
         return Response(UserSerializer(users, many=True).data)
     
     @swagger_auto_schema(
@@ -264,6 +268,10 @@ class UserViewSet(ViewSet):
     )
     def retrieve(self, request, pk=None):
         user = User.objects.filter(id=pk).first()
+        if user is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        if not request.user.is_staff and user.pk != request.user.pk:
+            return Response(status=status.HTTP_404_NOT_FOUND)
         serializer = UserSerializer(user)
         return Response(serializer.data)
     
@@ -287,6 +295,10 @@ class UserViewSet(ViewSet):
     )
     def update(self, request, pk=None):
         user = User.objects.filter(id=pk).first()
+        if user is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        if not request.user.is_staff and user.pk != request.user.pk:
+            return Response(status=status.HTTP_404_NOT_FOUND)
         serializer = UserSerializer(user, data=request.data)
         serializer.is_valid(raise_exception=True)
         user.email = serializer.validated_data.get('email', user.email)
@@ -294,9 +306,6 @@ class UserViewSet(ViewSet):
         user.last_name = serializer.validated_data.get('last_name', user.last_name)
         user.phone_number = serializer.validated_data.get('phone_number', user.phone_number)
 
-        user.is_active = serializer.validated_data.get('is_active', user.is_active)
-        user.is_staff = serializer.validated_data.get('is_staff', user.is_staff)
-        user.is_superuser = serializer.validated_data.get('is_superuser', user.is_superuser)
         user.save()
         return Response(UserSerializer(user).data)
     
@@ -307,11 +316,16 @@ class UserViewSet(ViewSet):
     )
     def destroy(self, request, pk=None):
         user = User.objects.filter(id=pk).first()
+        if user is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        if not request.user.is_staff and user.pk != request.user.pk:
+            return Response(status=status.HTTP_404_NOT_FOUND)
         user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
 
 class VisitorViewSet(ViewSet):
+    permission_classes = [IsAdminUser]
     pagination_class = LimitOffsetPagination
     
     @swagger_auto_schema(

@@ -1,38 +1,31 @@
-ARG PYTHON_VERSION=3.11-slim-bullseye
-FROM python:${PYTHON_VERSION}
+FROM python:3.11-slim-bookworm
 
-# Upgrade pip
-RUN pip install --upgrade pip
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Set Python-related environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-# Install os dependencies for our mini vm
-RUN apt-get update && apt-get install -y \
-    libpq-dev \
-    libjpeg-dev \
-    libcairo2 \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-
-# Set the working directory to that same code directory
 WORKDIR /app
 
-# Copy the requirements file into the container
-COPY requirements.txt .
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends curl libpq5 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install the Python project requirements
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir --requirement requirements.txt \
+    && pip uninstall --yes pip setuptools wheel
 
-# Copy the project code into the container's working directory
 COPY . .
-COPY .env /app/.env
+RUN chmod 0755 docker-entrypoint.sh \
+    && mkdir -p /app/static /app/media \
+    && chown -R 10001:10001 /app/static /app/media
 
-# Collect static files (make sure Django is installed before this)
-RUN python manage.py collectstatic --noinput
-
+USER 10001:10001
 EXPOSE 8000
 
-# Start Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "myproject.wsgi:application", "--workers", "3"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl --fail --silent http://127.0.0.1:8000/healthz/ >/dev/null || exit 1
+
+ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["gunicorn", "CORE.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--threads", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-"]

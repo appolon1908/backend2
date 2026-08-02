@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.viewsets import ViewSet, ModelViewSet
 from drf_yasg.utils import swagger_auto_schema
+from rest_framework.permissions import AllowAny
 
 from notification.service import EmailService
 
@@ -81,7 +82,7 @@ class CareerViewSet(ViewSet):
         tags=["Career"],
         request_body=CareerApplicationInputSerializer
     )
-    @action(methods=['POST'], detail=False, url_path="application")
+    @action(methods=['POST'], detail=False, url_path="application", permission_classes=[AllowAny])
     def create_application(self, request):
         serializer = CareerApplicationInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -212,7 +213,7 @@ class CareerViewSet(ViewSet):
         tags=["Career"],
         request_body=AnswerInputSerializer
     )
-    @action(methods=['POST'], detail=False, url_path="(?P<question_id>[a-z,A-Z,0-9]+)/answer")
+    @action(methods=['POST'], detail=False, url_path="(?P<question_id>[a-z,A-Z,0-9]+)/answer", permission_classes=[AllowAny])
     def answer_career_question(self, request, question_id=None):
         question = Question.objects.filter(id=question_id)
         

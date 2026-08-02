@@ -6,6 +6,12 @@
 # Node artifact files
 node_modules/
 dist/
+.env
+.env.*
+!.env.example
+db.sqlite3
+media/
+static/
 
 # Compiled Java class files
 *.class
@@ -47,4 +53,3 @@ Thumbs.db
 *.flv
 *.mov
 *.wmv
-

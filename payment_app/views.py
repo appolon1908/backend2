@@ -6,6 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.viewsets import ViewSet
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .webhook import stripe_webhook
 
@@ -17,6 +18,7 @@ from drf_yasg.utils import swagger_auto_schema
 
 class PaymentViewSet(ViewSet):
     serializer_class = PaymentSerializer
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         operation_description="Create a payment",
@@ -50,7 +52,6 @@ class PaymentViewSet(ViewSet):
         operation_summary="Stripe webhook",
         tags=["Webhook"],
     )
-    @action(methods=['POST'], detail=False, url_path="stripe-webhook")
+    @action(methods=['POST'], detail=False, url_path="stripe-webhook", permission_classes=[AllowAny])
     def stripe_webhook(self, request):
-        stripe_webhook(request)
-        return Response(status=status.HTTP_200_OK)
+        return stripe_webhook(request)

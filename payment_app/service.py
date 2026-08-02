@@ -28,8 +28,11 @@ class StripeService:
             customer = self.create_customer(name=name, email=email)
             
             
+            decimal_amount = Decimal(str(amount))
+            if decimal_amount <= 0:
+                raise ValueError("Amount must be greater than zero")
             payment = self.stripe.PaymentIntent.create(
-                amount=int(float(amount)) * 100,
+                amount=int(decimal_amount * 100),
                 currency=currency,
                 customer=customer.get("id"),
             )
@@ -42,7 +45,6 @@ class StripeService:
                 payment_method=payment.get("payment_method"),
                 status=payment.get("status"),
                 currency=payment.get("currency"),
-                client_secret=payment.get("client_secret"), #TODO: encrypt this
                 meta_data=payment.get("payment_method_configuration_details")
             )
             return payment

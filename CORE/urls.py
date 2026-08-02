@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from django.http import HttpResponse
+from django.http import JsonResponse
 
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
@@ -47,6 +47,7 @@ sitemaps = {
 
 
 urlpatterns = [
+    path('healthz/', lambda request: JsonResponse({'status': 'ok'}), name='healthz'),
     path('admin/', admin.site.urls),
     path('', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('api/blog/', include('blog_app.urls')),
@@ -65,7 +66,7 @@ urlpatterns = [
     {"sitemaps": sitemaps},
     name="django.contrib.sitemaps.views.sitemap",
 )
-] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+]
 
 
 if settings.DEBUG:

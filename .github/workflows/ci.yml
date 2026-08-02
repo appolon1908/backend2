@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt pip-audit bandit
+      - name: Django and security tests
+        env:
+          DJANGO_SETTINGS_MODULE: CORE.test_settings
+          SECRET_KEY: ci-only-secret-key-that-is-more-than-fifty-characters-long
+          ALLOWED_HOSTS: localhost,testserver
+          CSRF_TRUSTED_ORIGINS: http://localhost
+          CORS_ALLOWED_ORIGINS: http://localhost
+          POSTGRES_DB: test
+          POSTGRES_USER: test
+          POSTGRES_PASS: test
+          PG_HOST: localhost
+          PG_PORT: "5432"
+        run: |
+          python -m compileall -q .
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+          python manage.py test auth_app.tests payment_app.tests
+      - run: bandit -q -lll -r . -x './static,./media,./*/migrations'
+      - run: pip-audit -r requirements.txt
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t backend2-review:${{ github.sha }} .
+      - uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: backend2-review:${{ github.sha }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"

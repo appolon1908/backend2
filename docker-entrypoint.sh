@@ -1,19 +1,12 @@
-#!/bin/bash
+#!/bin/sh
+set -eu
 
-# Exit immediately if a command exits with a non-zero status
-set -e
+if [ "${RUN_MIGRATIONS:-0}" = "1" ]; then
+    python manage.py migrate --noinput
+fi
 
-echo "Running migrations..."
-python manage.py migrate --noinput
-
-echo "Collecting static files..."
-python manage.py collectstatic --noinput
-
-echo "Starting Gunicorn..."
-gunicorn CORE.wsgi:application \
-    --bind 0.0.0.0:8000 \
-    --workers 3 \
-    --threads 2 \
-    --timeout 120
+if [ "${COLLECT_STATIC:-0}" = "1" ]; then
+    python manage.py collectstatic --noinput
+fi
 
 exec "$@"
