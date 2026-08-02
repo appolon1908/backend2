@@ -1,6 +1,6 @@
 from django.conf import settings
 from rest_framework import serializers
-from .models import HeaderTitle, CaseStudy, FAQs, ContactUs, Logo, TaxPayer, Testimonial, TaxPayerMedia
+from .models import ElectronicBillingInterest, HeaderTitle, CaseStudy, FAQs, ContactUs, Logo, TaxPayer, Testimonial, TaxPayerMedia
 
 
 class HeaderTitleSerializer(serializers.ModelSerializer):
@@ -37,7 +37,18 @@ class FaqSerializer(serializers.ModelSerializer):
 class ContactUsSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContactUs
-        fields = "__all__"
+        fields = ["full_name", "email", "company_size", "message"]
+
+
+class ElectronicBillingInterestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ElectronicBillingInterest
+        fields = ["full_name", "email", "phone", "uses_erp", "consent_to_contact"]
+
+    def validate_consent_to_contact(self, value):
+        if not value:
+            raise serializers.ValidationError("Consent is required so Codestra can respond to this request.")
+        return value
 
 
 
