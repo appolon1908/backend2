@@ -50,6 +50,7 @@ services:
       backend: {condition: service_healthy}
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
+    healthcheck: {disable: true}
     networks: [codestra]
 
   celery_beat:
@@ -68,6 +69,7 @@ services:
       backend: {condition: service_healthy}
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
+    healthcheck: {disable: true}
     networks: [codestra]
 
   db:

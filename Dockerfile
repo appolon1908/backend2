@@ -25,7 +25,7 @@ USER 10001:10001
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl --fail --silent http://127.0.0.1:8000/healthz/ >/dev/null || exit 1
+    CMD curl --fail --silent -H "Host: ${HEALTHCHECK_HOST:-localhost}" http://127.0.0.1:8000/healthz/ >/dev/null || exit 1
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["gunicorn", "CORE.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--threads", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-"]

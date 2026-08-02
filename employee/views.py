@@ -157,9 +157,9 @@ class EmployeeViewset(viewsets.ViewSet):
         # return Response(EmployeeSerializer(blogs, many=True).data)
         odoo_response = self.send_get_all_employees_to_odoo()
 
-        if "error" in odoo_response:
-        #Returns an error response with the appropriate code and message
-            return Response(odoo_response, status=status.HTTP_400_BAD_REQUEST)
+        if not odoo_response or (isinstance(odoo_response, dict) and "error" in odoo_response):
+            employees = self.get_queryset()
+            return Response(EmployeeSerializer(employees, many=True).data, status=status.HTTP_200_OK)
     
     # If everything is fine, return the data obtained
         return Response(odoo_response, status=status.HTTP_200_OK)
@@ -182,8 +182,10 @@ class EmployeeViewset(viewsets.ViewSet):
 
         if odoo_response:
             return Response(odoo_response, status=status.HTTP_200_OK)
-        else:
-            return Response({"error": "Employee not found in Odoo."}, status=status.HTTP_404_NOT_FOUND)
+        employee = Employee.objects.prefetch_related('social_media_profiles').filter(id=pk).first()
+        if not employee:
+            return Response({"error": "Employee not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(EmployeeSerializer(employee).data, status=status.HTTP_200_OK)
     
     @swagger_auto_schema(
         operation_description="Create an employee record form",

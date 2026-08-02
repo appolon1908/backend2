@@ -130,7 +130,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class Visitor(models.Model):
     ip_address = models.GenericIPAddressField()
-    page = models.URLField(default=settings.BASE_URL) 
+    page = models.URLField(default="https://codestra.co")
     device = models.CharField(max_length=100)
     os = models.CharField(max_length=100)
     browser = models.CharField(max_length=100)
