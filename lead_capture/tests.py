@@ -118,6 +118,39 @@ class LeadSubmissionTests(APITestCase):
         self.assertEqual(no_consent.status_code, 400)
         self.assertEqual(bot.status_code, 400)
 
+    @override_settings(
+        LEAD_DELIVERY_MODE="production",
+        ODOO_BASE_URL="https://odoo-stage.example.invalid",
+        ODOO_DATABASE="codestra_stage",
+        ODOO_CLIENT_ID="stage-client",
+        ODOO_CLIENT_SECRET="stage-secret",
+        ODOO_FIELD_MAPPING_CONFIRMED=True,
+        ODOO_ROUTING_MAP={"LOGISTICS_AI": {"campaign_id": 11, "team_id": 22, "source_id": 33, "medium_id": 44}},
+        **TEST_RUNTIME,
+    )
+    @patch("lead_capture.adapters.requests.post")
+    def test_approved_submission_maps_to_crm_lead(self, post):
+        post.return_value = Mock(status_code=201, json=lambda: {"id": 9876})
+        lead = LeadSubmission.objects.create(
+            idempotency_key_hash="e" * 64, duplicate_fingerprint="f" * 64,
+            full_name="Ada Example", business_name="Example Logistics", work_email="ada-stage@example.com",
+            phone_number="+15550100200", country="US", preferred_language="English", industry="Transportation",
+            campaign_code="LOGISTICS_AI", employee_count="11-50", monthly_call_volume="1000-5000",
+            product_interest="Dispatch automation", message="After-hours quote intake", consent=True,
+            anonymous_session_id="stage-session",
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            deliver_lead.run(lead.pk)
+        lead.refresh_from_db()
+        self.assertEqual(lead.delivery_status, "delivered")
+        self.assertEqual(lead.delivery_reference, "9876")
+        request = post.call_args
+        self.assertTrue(request.args[0].endswith("/api/v1/models/crm.lead"))
+        body = request.kwargs["json"]
+        self.assertEqual(body["values"]["name"], "AI Receptionist — Example Logistics")
+        self.assertEqual(body["values"]["email_from"], "ada-stage@example.com")
+        self.assertEqual(body["campaign_id"], 11)
+
     def test_localization_context_uses_stable_locale_values(self):
         payload = lead_payload(
             preferred_language="es",
