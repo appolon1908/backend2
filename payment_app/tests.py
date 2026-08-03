@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from payment_app.models import StripeWebhookEvent
 from payment_app.views import StripeService
 
@@ -52,3 +52,20 @@ class PaymentSecurityTests(APITestCase):
         receipt = StripeWebhookEvent.objects.get(event_id="evt_contract_1")
         self.assertEqual(receipt.status, "processed")
         self.assertEqual(receipt.attempts, 1)
+
+    @patch("payment_app.webhook.stripe.Webhook.construct_event")
+    @patch("payment_app.webhook.Transaction.objects.filter")
+    def test_processing_failure_returns_5xx_then_allows_retry(self, filter_transactions, construct_event):
+        construct_event.return_value = {
+            "id": "evt_contract_retry", "type": "payment_intent.payment_failed",
+            "data": {"object": {"id": "pi_retry", "status": "failed"}},
+        }
+        filter_transactions.side_effect = [RuntimeError("temporary database failure"), Mock(first=lambda: None)]
+        with self.settings(STRIPE_WEBHOOK_SECRET="whsec_test"):
+            first = self.client.post("/api/payment/stripe-webhook/", b"retry", content_type="application/json", HTTP_STRIPE_SIGNATURE="valid")
+            second = self.client.post("/api/payment/stripe-webhook/", b"retry", content_type="application/json", HTTP_STRIPE_SIGNATURE="valid")
+        self.assertEqual(first.status_code, 500)
+        self.assertEqual(second.status_code, 200)
+        receipt = StripeWebhookEvent.objects.get(event_id="evt_contract_retry")
+        self.assertEqual(receipt.status, "processed")
+        self.assertEqual(receipt.attempts, 2)
