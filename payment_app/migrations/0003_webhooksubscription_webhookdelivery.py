@@ -31,6 +31,7 @@ class Migration(migrations.Migration):
                 ("payload", models.JSONField(default=dict)),
                 ("status", models.CharField(choices=[("queued", "Queued"), ("delivered", "Delivered"), ("failed", "Failed"), ("retrying", "Retrying")], default="queued", max_length=16)),
                 ("attempts", models.PositiveSmallIntegerField(default=0)),
+                ("attempt_history", models.JSONField(default=list)),
                 ("response_code", models.PositiveSmallIntegerField(blank=True, null=True)),
                 ("response_body", models.TextField(blank=True)),
                 ("error", models.CharField(blank=True, max_length=255)),

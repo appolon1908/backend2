@@ -26,6 +26,7 @@ def deliver_webhook(self, delivery_id):
     body = json.dumps({"id": str(delivery.event_id), "type": delivery.event_type, "data": delivery.payload}, separators=(",", ":")).encode()
     timestamp = int(time.time())
     delivery.attempts += 1
+    delivery.attempt_history.append({"attempt": delivery.attempts, "started_at": timezone.now().isoformat()})
     try:
         response = requests.post(delivery.subscription.url, data=body, headers={"Content-Type": "application/json", "X-Codestra-Signature": signature(delivery.subscription.secret, timestamp, body), "X-Codestra-Event-Id": str(delivery.event_id)}, timeout=8)
         delivery.response_code = response.status_code
@@ -34,19 +35,23 @@ def deliver_webhook(self, delivery_id):
             delivery.status = WebhookDelivery.Status.DELIVERED
             delivery.delivered_at = timezone.now()
             delivery.error = ""
+            delivery.attempt_history[-1].update({"status": "delivered", "response_code": response.status_code})
         elif response.status_code >= 500 and self.request.retries < self.max_retries:
             delivery.status = WebhookDelivery.Status.RETRYING
             delivery.error = "receiver_5xx"
-            delivery.save(update_fields=["attempts", "response_code", "response_body", "status", "error", "updated_at"])
+            delivery.attempt_history[-1].update({"status": "retrying", "response_code": response.status_code})
+            delivery.save(update_fields=["attempts", "attempt_history", "response_code", "response_body", "status", "error", "updated_at"])
             raise self.retry()
         else:
             delivery.status = WebhookDelivery.Status.FAILED
             delivery.error = "receiver_rejected"
+            delivery.attempt_history[-1].update({"status": "failed", "response_code": response.status_code})
     except (requests.Timeout, requests.ConnectionError) as exc:
         delivery.error = "receiver_unavailable"
         delivery.status = WebhookDelivery.Status.RETRYING if self.request.retries < self.max_retries else WebhookDelivery.Status.FAILED
-        delivery.save(update_fields=["attempts", "status", "error", "updated_at"])
+        delivery.attempt_history[-1].update({"status": delivery.status, "error": delivery.error})
+        delivery.save(update_fields=["attempts", "attempt_history", "status", "error", "updated_at"])
         if delivery.status == WebhookDelivery.Status.RETRYING:
             raise self.retry(exc=exc)
-    delivery.save(update_fields=["attempts", "response_code", "response_body", "status", "error", "delivered_at", "updated_at"])
+    delivery.save(update_fields=["attempts", "attempt_history", "response_code", "response_body", "status", "error", "delivered_at", "updated_at"])
     return delivery.status

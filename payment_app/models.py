@@ -80,6 +80,7 @@ class WebhookDelivery(models.Model):
     payload = models.JSONField(default=dict)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.QUEUED)
     attempts = models.PositiveSmallIntegerField(default=0)
+    attempt_history = models.JSONField(default=list)
     response_code = models.PositiveSmallIntegerField(null=True, blank=True)
     response_body = models.TextField(blank=True)
     error = models.CharField(max_length=255, blank=True)

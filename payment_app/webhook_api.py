@@ -46,7 +46,7 @@ class SubscriptionSerializer(serializers.ModelSerializer):
 class DeliverySerializer(serializers.ModelSerializer):
     class Meta:
         model = WebhookDelivery
-        fields = ("id", "event_id", "event_type", "status", "attempts", "response_code", "response_body", "error", "created_at", "delivered_at", "updated_at")
+        fields = ("id", "event_id", "event_type", "status", "attempts", "attempt_history", "response_code", "response_body", "error", "created_at", "delivered_at", "updated_at")
 
 
 class WebhookSubscriptionViewSet(viewsets.ModelViewSet):
