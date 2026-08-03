@@ -38,3 +38,19 @@ class Transaction(models.Model):
     
     def __str__(self):
         return self.transaction_id
+
+
+class StripeWebhookEvent(models.Model):
+    """Durable Stripe event receipt used for idempotent webhook processing."""
+
+    event_id = models.CharField(max_length=255, unique=True)
+    event_type = models.CharField(max_length=120)
+    payload_sha256 = models.CharField(max_length=64)
+    status = models.CharField(max_length=24, default="received")
+    attempts = models.PositiveSmallIntegerField(default=0)
+    last_error = models.CharField(max_length=255, blank=True)
+    received_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["status", "received_at"])]
