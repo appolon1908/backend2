@@ -62,10 +62,10 @@ class WebhookSubscription(models.Model):
     name = models.CharField(max_length=120)
     # Plaintext ``secret`` was removed by migration 0005.  Keep only envelope
     # ciphertext and metadata; serializers never expose these fields.
-    secret_ciphertext = models.TextField()
-    secret_nonce = models.CharField(max_length=32)
+    secret_ciphertext = models.TextField(default="")
+    secret_nonce = models.CharField(max_length=32, default="")
     secret_key_version = models.CharField(max_length=16, default="v1")
-    secret_fingerprint = models.CharField(max_length=64, db_index=True)
+    secret_fingerprint = models.CharField(max_length=64, db_index=True, default="")
     previous_secret_ciphertext = models.TextField(blank=True, default="")
     previous_secret_nonce = models.CharField(max_length=32, blank=True, default="")
     previous_secret_key_version = models.CharField(max_length=16, blank=True, default="")
