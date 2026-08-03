@@ -273,6 +273,8 @@ EMAIL_FROM = config("EMAIL_FROM", default="sales@codestra.co")
 STRIP_SECRET_KEY = config("STRIP_SECRET_KEY", default="")
 STRIP_PUBLISHABLE_KEY = config("STRIP_PUBLISHABLE_KEY", default="")
 STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
+WEBHOOK_STAGING_MODE = config("WEBHOOK_STAGING_MODE", default=False, cast=bool)
+WEBHOOK_STAGING_SECRET = config("WEBHOOK_STAGING_SECRET", default="")
 
 ODOO_BASE_URL = config("ODOO_BASE_URL", default="https://crm.codestra.co").rstrip("/")
 ODOO_API_TOKEN = config("ODOO_API_TOKEN", default="")

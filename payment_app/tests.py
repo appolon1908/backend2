@@ -1,5 +1,5 @@
 from unittest.mock import Mock, patch
-from payment_app.models import StripeWebhookEvent
+from payment_app.models import StripeWebhookEvent, WebhookSubscription
 from payment_app.views import StripeService
 
 from django.contrib.auth import get_user_model
@@ -7,6 +7,22 @@ from rest_framework.test import APIClient, APITestCase
 
 
 class PaymentSecurityTests(APITestCase):
+    def test_authenticated_subscription_crud_and_secret_delivery(self):
+        user = get_user_model().objects.create_user(email="hooks@example.invalid", password="safe-password")
+        self.client.force_authenticate(user=user)
+        created = self.client.post("/api/payment/subscriptions/", {"name": "Staging", "url": "https://receiver.example.invalid/hooks", "events": ["test"]}, format="json")
+        self.assertEqual(created.status_code, 201)
+        self.assertTrue(created.data["secret"])
+        subscription_id = created.data["id"]
+        self.assertEqual(self.client.patch(f"/api/payment/subscriptions/{subscription_id}/", {"enabled": False}, format="json").status_code, 200)
+        self.assertEqual(self.client.get("/api/payment/subscriptions/").status_code, 200)
+        self.assertEqual(self.client.delete(f"/api/payment/subscriptions/{subscription_id}/").status_code, 204)
+
+    @patch("payment_app.webhook_api._valid_signature", return_value=True)
+    def test_staging_receiver_accepts_verified_event(self, valid_signature):
+        with self.settings(WEBHOOK_STAGING_MODE=True, WEBHOOK_STAGING_SECRET="stage-secret"):
+            response = self.client.post("/api/payment/staging-receiver/", {"event": "test"}, format="json", HTTP_X_CODEStra_SIGNATURE="valid", HTTP_X_CODEStra_EVENT_ID="evt-stage")
+        self.assertEqual(response.status_code, 202)
     @patch.object(StripeService, "create_payment_intent", return_value={"client_secret": "cs_test"})
     def test_authenticated_payment_contract_uses_canonical_route(self, create_intent):
         user = get_user_model().objects.create_user(email="auth@example.invalid", password="safe-password")
