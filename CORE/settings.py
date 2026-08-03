@@ -297,7 +297,14 @@ INTERNAL_SERVICE_ALLOWLIST = [item.strip() for item in config("INTERNAL_SERVICE_
 REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"].update({
     "lead_submission": "10/hour",
     "analytics_event": "120/minute",
+    "webhook_test": "5/minute",
+    "payment_webhook": "120/minute",
+    "internal_odoo": "60/minute",
 })
+
+WEBHOOK_SECRET_KEY_FILE = config("WEBHOOK_SECRET_KEY_FILE", default="/run/secrets/codestra_webhook_secret_key")
+WEBHOOK_MAX_BODY_BYTES = config("WEBHOOK_MAX_BODY_BYTES", default=262144, cast=int)
+INTERNAL_MAX_BODY_BYTES = config("INTERNAL_MAX_BODY_BYTES", default=262144, cast=int)
 
 CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://redis:6379/1")
 CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND", default="redis://redis:6379/2")

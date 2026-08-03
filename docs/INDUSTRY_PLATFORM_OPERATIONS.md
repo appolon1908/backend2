@@ -67,6 +67,15 @@ Rollback: switch `LEAD_DELIVERY_MODE=mock`, stop workers if unsafe execution is 
 
 Privacy consent is required; marketing consent is independent. Store policy version and timestamp when the extended contract is enabled. First- and last-touch attribution are retained with the lead. Analytics rejects unapproved event names and strips attribution keys outside the UTM/click allowlist. Never send medical details, legal narratives, financial data, documents, transcripts, names, email, or full phone numbers to analytics. Production retention periods require owner/legal approval; implement scheduled deletion/anonymization before live sensitive workflows.
 
+## Proxy and rate-limit trust
+
+`TRUSTED_PROXY_IPS` must contain only the proven Caddy/container bridge address
+or CIDR. Forwarded headers from every other source are ignored. Lead forms
+remain limited to 10/hour, analytics/localization to 120/minute, and DRF
+anonymous/authenticated defaults remain 60/minute and 300/minute. Payment
+webhooks are bounded to 256 KiB raw bodies and a dedicated throttle scope;
+webhook tests are limited to five per organization per minute.
+
 ## Monitoring, dashboards, and alerts
 
 Public probes: `/health/live`, `/health/ready`, and `/.well-known/codestra-service`. `/metrics` requires staff authentication/network restriction. Metrics cover accepted/queued/failed/dead-letter submissions and analytics volume without personal labels.

@@ -1,4 +1,5 @@
 import hashlib
+import ipaddress
 import os
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+from django.http import HttpResponse
 
 from .models import AnalyticsEvent, LeadSubmission
 from .serializers import AnalyticsEventSerializer, LeadSubmissionSerializer
@@ -22,10 +24,23 @@ COUNTRY_LOCALES = {"DO": "es", "HT": "fr", "FR": "fr", "ES": "es", "MX": "es", "
 
 def _client_ip(request):
     remote = request.META.get("REMOTE_ADDR", "")
-    trusted = {item.strip() for item in os.getenv("TRUSTED_PROXY_IPS", "").split(",") if item.strip()}
-    if remote in trusted:
+    trusted = []
+    for item in os.getenv("TRUSTED_PROXY_IPS", "").split(","):
+        try:
+            trusted.append(ipaddress.ip_network(item.strip(), strict=False))
+        except ValueError:
+            continue
+    try:
+        proxy_ip = ipaddress.ip_address(remote)
+    except ValueError:
+        proxy_ip = None
+    if proxy_ip and any(proxy_ip in network for network in trusted):
         forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
-        return forwarded.split(",")[0].strip() if forwarded else remote
+        candidate = forwarded.split(",")[0].strip() if forwarded else remote
+        try:
+            return str(ipaddress.ip_address(candidate))
+        except ValueError:
+            return remote
     return remote
 
 
@@ -224,3 +239,25 @@ class MetricsView(APIView):
                 "geoip_database_age_seconds": round(timezone.now().timestamp() - geoip_path.stat().st_mtime) if geoip_path.is_file() else None,
             },
         })
+
+
+class PrometheusMetricsView(APIView):
+    """Private scrape endpoint; proxy configuration must keep /internal/ private."""
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        from django.db import connection
+        from payment_app.models import StripeWebhookEvent, WebhookDelivery
+        lines = [
+            "# TYPE codestra_lead_submissions_total gauge",
+            f"codestra_lead_submissions_total {LeadSubmission.objects.count()}",
+            f"codestra_lead_queue_depth {LeadSubmission.objects.filter(delivery_status='queued').count()}",
+            f"codestra_lead_dead_letter_total {LeadSubmission.objects.filter(delivery_status='dead_letter').count()}",
+            f"codestra_webhook_deliveries_total {WebhookDelivery.objects.count()}",
+            f"codestra_webhook_deliveries_failed {WebhookDelivery.objects.filter(status='failed').count()}",
+            f"codestra_payment_webhook_events_total {StripeWebhookEvent.objects.count()}",
+            "codestra_worker_heartbeat 1",
+            f"codestra_database_up {1 if connection.is_usable() else 0}",
+        ]
+        return HttpResponse("\n".join(lines) + "\n", content_type="text/plain; version=0.0.4")

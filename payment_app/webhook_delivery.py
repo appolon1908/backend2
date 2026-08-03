@@ -28,9 +28,10 @@ def deliver_webhook(self, delivery_id):
     delivery.attempts += 1
     delivery.attempt_history.append({"attempt": delivery.attempts, "started_at": timezone.now().isoformat()})
     try:
-        response = requests.post(delivery.subscription.url, data=body, headers={"Content-Type": "application/json", "X-Codestra-Signature": signature(delivery.subscription.secret, timestamp, body), "X-Codestra-Event-Id": str(delivery.event_id)}, timeout=8)
+        secret = delivery.subscription.current_secret()
+        response = requests.post(delivery.subscription.url, data=body, headers={"Content-Type": "application/json", "X-Codestra-Signature": signature(secret, timestamp, body), "X-Codestra-Event-Id": str(delivery.event_id)}, timeout=8, allow_redirects=False, stream=True)
         delivery.response_code = response.status_code
-        delivery.response_body = response.text[:1000]
+        delivery.response_body = response.raw.read(65536, decode_content=True).decode("utf-8", errors="replace")[:1000]
         if 200 <= response.status_code < 300:
             delivery.status = WebhookDelivery.Status.DELIVERED
             delivery.delivered_at = timezone.now()

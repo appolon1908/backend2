@@ -196,7 +196,7 @@ class LocalizationApiTests(APITestCase):
     def test_forwarded_address_is_used_only_for_configured_trusted_proxy(self):
         request = Mock()
         request.META = {"REMOTE_ADDR": "203.0.113.20", "HTTP_X_FORWARDED_FOR": "198.51.100.8, 10.0.0.1"}
-        with mock.patch.dict("os.environ", {"TRUSTED_PROXY_IPS": "203.0.113.20"}):
+        with mock.patch.dict("os.environ", {"TRUSTED_PROXY_IPS": "203.0.113.0/24"}):
             self.assertEqual(_client_ip(request), "198.51.100.8")
         with mock.patch.dict("os.environ", {"TRUSTED_PROXY_IPS": "192.0.2.5"}):
             self.assertEqual(_client_ip(request), "203.0.113.20")

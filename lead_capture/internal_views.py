@@ -18,6 +18,8 @@ class ServiceAuthenticatedView(APIView):
     permission_classes = []
 
     def dispatch(self, request, *args, **kwargs):
+        if len(request.body) > getattr(settings, "INTERNAL_MAX_BODY_BYTES", 262144):
+            return JsonResponse({"code": "payload_too_large"}, status=413)
         secret = getattr(settings, "INTERNAL_SERVICE_SECRET", "")
         service, timestamp, signature = (request.headers.get(k, "") for k in ("X-Service-ID", "X-Timestamp", "X-Signature"))
         try: fresh = abs(time.time() - int(timestamp)) <= 300

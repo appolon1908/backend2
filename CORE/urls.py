@@ -23,7 +23,7 @@ from drf_yasg import openapi
 from rest_framework import permissions
 from django.conf import settings
 from django.conf.urls.static import static
-from lead_capture.views import MetricsView, ServiceManifestView, ServiceStatusView
+from lead_capture.views import MetricsView, PrometheusMetricsView, ServiceManifestView, ServiceStatusView
 
 from django.contrib.sitemaps.views import sitemap
 
@@ -53,6 +53,7 @@ urlpatterns = [
     path('health/ready', ServiceStatusView.as_view(), {"check": "ready"}, name='health-ready'),
     path('.well-known/codestra-service', ServiceManifestView.as_view(), name='service-manifest'),
     path('metrics', MetricsView.as_view(), name='metrics'),
+    path('internal/metrics', PrometheusMetricsView.as_view(), name='prometheus-metrics'),
     path('admin/', admin.site.urls),
     path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0), name='api-docs'),
     path('api/schema/', schema_view.without_ui(cache_timeout=0), name='api-schema'),

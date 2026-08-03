@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .webhook import stripe_webhook
+from django.conf import settings
 
 
 from drf_yasg.utils import swagger_auto_schema
@@ -59,4 +60,6 @@ class PaymentViewSet(ViewSet):
     )
     @action(methods=['POST'], detail=False, url_path="stripe-webhook", permission_classes=[AllowAny])
     def stripe_webhook(self, request):
+        if len(request.body) > getattr(settings, "WEBHOOK_MAX_BODY_BYTES", 262144):
+            return Response({"code": "payload_too_large"}, status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
         return stripe_webhook(request)

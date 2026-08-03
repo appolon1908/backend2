@@ -7,6 +7,28 @@ from rest_framework.test import APIClient, APITestCase
 
 
 class PaymentSecurityTests(APITestCase):
+    def test_webhook_secret_is_enveloped_and_never_plaintext(self):
+        user = get_user_model().objects.create_user(email="envelope@example.invalid", password="safe-password")
+        self.client.force_authenticate(user=user)
+        created = self.client.post("/api/payment/subscriptions/", {"name": "Envelope", "url": "https://receiver.example.invalid/hooks", "events": ["test"]}, format="json")
+        self.assertEqual(created.status_code, 201)
+        row = WebhookSubscription.objects.get(pk=created.data["id"])
+        self.assertNotIn("secret", {field.name for field in WebhookSubscription._meta.fields})
+        self.assertNotEqual(row.secret_ciphertext, created.data["secret"])
+        self.assertEqual(row.current_secret(), created.data["secret"])
+
+    def test_admin_rotation_keeps_bounded_previous_overlap(self):
+        user = get_user_model().objects.create_user(email="rotate@example.invalid", password="safe-password", is_staff=True)
+        self.client.force_authenticate(user=user)
+        created = self.client.post("/api/payment/subscriptions/", {"name": "Rotate", "url": "https://receiver.example.invalid/hooks", "events": ["test"]}, format="json")
+        row = WebhookSubscription.objects.get(pk=created.data["id"])
+        old = created.data["secret"]
+        rotated = self.client.post(f"/api/payment/subscriptions/{row.pk}/rotate-secret/", {}, format="json")
+        row.refresh_from_db()
+        self.assertEqual(rotated.status_code, 200)
+        self.assertNotEqual(old, rotated.data["secret"])
+        self.assertEqual(row.current_secret(), rotated.data["secret"])
+        self.assertEqual(row.previous_secret(), old)
     def test_authenticated_subscription_crud_and_secret_delivery(self):
         user = get_user_model().objects.create_user(email="hooks@example.invalid", password="safe-password")
         self.client.force_authenticate(user=user)

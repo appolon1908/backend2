@@ -1,0 +1,7 @@
+[allowlist]
+description = "Verified drf-yasg Redoc vendor false positives only"
+commits = ["aa0e4171c04ef9c516b0bcc068bd6bb246377d6a"]
+paths = ["^static/drf-yasg/redoc/redoc\\.min\\.js$"]
+fingerprints = [
+  "aa0e4171c04ef9c516b0bcc068bd6bb246377d6a:static/drf-yasg/redoc/redoc.min.js:generic-api-key:8",
+]
