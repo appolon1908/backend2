@@ -24,6 +24,8 @@ jobs:
           python-version: "3.11"
           cache: pip
       - run: pip install -r requirements.txt pip-audit bandit
+      - name: Create disposable webhook key
+        run: openssl rand -base64 32 > /tmp/codestra-webhook-secret-key
       - name: Django and security tests
         env:
           DJANGO_SETTINGS_MODULE: CORE.test_settings
@@ -36,6 +38,7 @@ jobs:
           POSTGRES_PASS: test
           PG_HOST: localhost
           PG_PORT: "5432"
+          WEBHOOK_SECRET_KEY_FILE: /tmp/codestra-webhook-secret-key
         run: |
           python -m compileall -q .
           python manage.py check
