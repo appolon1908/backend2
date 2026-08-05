@@ -66,7 +66,43 @@ INSTALLED_APPS = [
     'career_app',
     'payment_app',
     'lead_capture',
+    'server_c',
 ]
+
+# Server C is a presentation and request-preparation boundary. Privileged
+# business mutations must fail closed unless the middleware gateway is set.
+MIDDLEWARE_GATEWAY_URL = config("MIDDLEWARE_GATEWAY_URL", default="")
+MIDDLEWARE_GATEWAY_TIMEOUT = config("MIDDLEWARE_GATEWAY_TIMEOUT", cast=float, default=8.0)
+AI_GATEWAY_URL = config("AI_GATEWAY_URL", default="")
+SERVER_C_PLATFORM_VERSION = config("SERVER_C_PLATFORM_VERSION", default="1.0")
+SERVER_C_FEATURE_FLAGS = {
+    "MARKETPLACE_STAGING_ENABLED": True,
+    "MARKETPLACE_SEARCH_ENABLED": True,
+    "MARKETPLACE_TRIAL_REQUESTS_ENABLED": True,
+    "MARKETPLACE_INSTALLATION_REQUESTS_ENABLED": True,
+    "AI_SALES_STAGING_ENABLED": True,
+    "SCRAPER_STAGING_ENABLED": True,
+    "LEAD_ENRICHMENT_ENABLED": True,
+    "LEAD_SCORING_ENABLED": True,
+    "CRM_SUBMISSION_REQUESTS_ENABLED": True,
+    "PUBLIC_WEBSITE_ENABLED": True,
+    "CUSTOMER_PORTAL_STAGING_ENABLED": True,
+    "PARTNER_PORTAL_STAGING_ENABLED": True,
+    "DEVELOPER_PORTAL_STAGING_ENABLED": True,
+    "DOCUMENTATION_PORTAL_ENABLED": True,
+    "ACADEMY_STAGING_ENABLED": True,
+    "AUTOMATIC_MARKETPLACE_INSTALLATION_ENABLED": False,
+    "AUTOMATIC_MARKETPLACE_PRODUCTION_ACTIVATION_ENABLED": False,
+    "AUTOMATIC_PUBLICATION_ENABLED": False,
+    "AUTONOMOUS_OUTREACH_ENABLED": False,
+    "AUTONOMOUS_EMAIL_ENABLED": False,
+    "AUTONOMOUS_SMS_ENABLED": False,
+    "AUTONOMOUS_SOCIAL_MESSAGES_ENABLED": False,
+    "DIRECT_ODOO_WRITES_ENABLED": False,
+    "DIRECT_VICIDIAL_WRITES_ENABLED": False,
+    "UNRESTRICTED_SCRAPING_ENABLED": False,
+    "GLOBAL_PRODUCTION_ACTIVATION_ENABLED": False,
+}
 
 APPEND_SLASH = False
 
@@ -93,6 +129,9 @@ MIDDLEWARE = [
     'middlewares.visitors_details_middleware.VisitorTrackingMiddleware',
     'middlewares.block_ip_address_middleware.BlockBlacklistedIPsMiddleware',
 ]
+
+if ENVIRONMENT == "test":
+    MIDDLEWARE = [item for item in MIDDLEWARE if not item.startswith("middlewares.")]
 
 ROOT_URLCONF = 'CORE.urls'
 
@@ -207,6 +246,9 @@ CACHES = {
         "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
     }
 }
+
+if ENVIRONMENT == "test":
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
 
 USER_AGENTS_CACHE = 'default'
 
