@@ -24,6 +24,7 @@
     "require_provenance": true,
     "require_signature": false,
     "attestation_verifier": "github",
+    "attestation_storage": "github",
     "signer_workflow": ".github/workflows/deploy.yml"
   },
   "environments": {
