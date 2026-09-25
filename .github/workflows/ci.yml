@@ -13,11 +13,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Secret scan (full history)
+        run: |
+          curl --fail --silent --show-error --location --output /tmp/gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz
+          curl --fail --silent --show-error --location --output /tmp/gitleaks-checksums.txt https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_checksums.txt
+          cd /tmp && grep 'gitleaks_8.24.3_linux_x64.tar.gz' gitleaks-checksums.txt | sha256sum -c -
+          tar -xz -f /tmp/gitleaks.tar.gz -C /tmp
+          cd "$GITHUB_WORKSPACE"
+          /tmp/gitleaks detect --source . --log-opts='--all' --redact --config .gitleaks.toml
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
       - run: pip install -r requirements.txt pip-audit bandit
+      - name: Create disposable webhook key
+        run: openssl rand -base64 32 > /tmp/codestra-webhook-secret-key
       - name: Django and security tests
         env:
           DJANGO_SETTINGS_MODULE: CORE.test_settings
@@ -30,6 +42,7 @@ jobs:
           POSTGRES_PASS: test
           PG_HOST: localhost
           PG_PORT: "5432"
+          WEBHOOK_SECRET_KEY_FILE: /tmp/codestra-webhook-secret-key
         run: |
           python -m compileall -q .
           python manage.py check

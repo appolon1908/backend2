@@ -1,4 +1,5 @@
 from rest_framework.viewsets import ViewSet
+from rest_framework.permissions import IsAuthenticated
 from .serializers import EventSerializer, CreateEventSerializer
 from rest_framework.response import Response
 from rest_framework import status
@@ -21,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 
 class EventViewSet(ViewSet):
+
+    permission_classes = [IsAuthenticated]
 
 
     serializezr_class = EventSerializer

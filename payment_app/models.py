@@ -38,3 +38,89 @@ class Transaction(models.Model):
     
     def __str__(self):
         return self.transaction_id
+
+
+class StripeWebhookEvent(models.Model):
+    """Durable Stripe event receipt used for idempotent webhook processing."""
+
+    event_id = models.CharField(max_length=255, unique=True)
+    event_type = models.CharField(max_length=120)
+    payload_sha256 = models.CharField(max_length=64)
+    status = models.CharField(max_length=24, default="received")
+    attempts = models.PositiveSmallIntegerField(default=0)
+    last_error = models.CharField(max_length=255, blank=True)
+    received_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["status", "received_at"])]
+
+
+class WebhookSubscription(models.Model):
+    owner = models.ForeignKey("auth_app.User", on_delete=models.CASCADE, related_name="webhook_subscriptions")
+    url = models.URLField(max_length=1000)
+    name = models.CharField(max_length=120)
+    # Plaintext ``secret`` was removed by migration 0005.  Keep only envelope
+    # ciphertext and metadata; serializers never expose these fields.
+    secret_ciphertext = models.TextField(default="")
+    secret_nonce = models.CharField(max_length=32, default="")
+    secret_key_version = models.CharField(max_length=16, default="v1")
+    secret_fingerprint = models.CharField(max_length=64, db_index=True, default="")
+    previous_secret_ciphertext = models.TextField(blank=True, default="")
+    previous_secret_nonce = models.CharField(max_length=32, blank=True, default="")
+    previous_secret_key_version = models.CharField(max_length=16, blank=True, default="")
+    previous_secret_expires_at = models.DateTimeField(null=True, blank=True)
+    secret_rotated_at = models.DateTimeField(null=True, blank=True)
+    secret_revoked_at = models.DateTimeField(null=True, blank=True)
+    events = models.JSONField(default=list)
+    enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def current_secret(self):
+        from .secret_crypto import decrypt
+        if self.secret_revoked_at:
+            raise ValueError("webhook secret revoked")
+        return decrypt(self.secret_ciphertext, self.secret_nonce, self.secret_key_version)
+
+    def previous_secret(self):
+        from django.utils import timezone
+        from .secret_crypto import decrypt
+        if not self.previous_secret_ciphertext or not self.previous_secret_expires_at:
+            return None
+        if self.previous_secret_expires_at <= timezone.now():
+            return None
+        return decrypt(self.previous_secret_ciphertext, self.previous_secret_nonce, self.previous_secret_key_version)
+
+
+class WebhookDelivery(models.Model):
+    class Status(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        DELIVERED = "delivered", "Delivered"
+        FAILED = "failed", "Failed"
+        RETRYING = "retrying", "Retrying"
+
+    subscription = models.ForeignKey(WebhookSubscription, on_delete=models.CASCADE, related_name="deliveries")
+    event_id = models.UUIDField(default=uuid.uuid4, unique=True)
+    event_type = models.CharField(max_length=120)
+    payload = models.JSONField(default=dict)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.QUEUED)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    attempt_history = models.JSONField(default=list)
+    response_code = models.PositiveSmallIntegerField(null=True, blank=True)
+    response_body = models.TextField(blank=True)
+    error = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class WebhookAuditEvent(models.Model):
+    actor = models.ForeignKey("auth_app.User", null=True, blank=True, on_delete=models.SET_NULL)
+    subscription = models.ForeignKey(WebhookSubscription, null=True, blank=True, on_delete=models.SET_NULL)
+    action = models.CharField(max_length=32)
+    metadata = models.JSONField(default=dict)
+    occurred_at = models.DateTimeField(auto_now_add=True)

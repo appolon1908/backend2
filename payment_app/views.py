@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .webhook import stripe_webhook
+from django.conf import settings
 
 
 from drf_yasg.utils import swagger_auto_schema
@@ -26,7 +27,7 @@ class PaymentViewSet(ViewSet):
         tags=["Payment"],
         request_body=PaymentSerializer,
     )
-    @action(methods=['POST'], detail=False, url_path='stipe-payment')
+    @action(methods=['POST'], detail=False, url_path='stripe-payment')
     def create_payment(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -45,6 +46,11 @@ class PaymentViewSet(ViewSet):
         return Response(
             {"client_secret": payment.get("client_secret")}, 
             status=status.HTTP_201_CREATED)
+
+    @swagger_auto_schema(operation_description="Legacy compatibility alias for the payment endpoint")
+    @action(methods=['POST'], detail=False, url_path='stipe-payment')
+    def create_payment_legacy(self, request):
+        return self.create_payment(request)
     
     
     @swagger_auto_schema(
@@ -54,4 +60,6 @@ class PaymentViewSet(ViewSet):
     )
     @action(methods=['POST'], detail=False, url_path="stripe-webhook", permission_classes=[AllowAny])
     def stripe_webhook(self, request):
+        if len(request.body) > getattr(settings, "WEBHOOK_MAX_BODY_BYTES", 262144):
+            return Response({"code": "payload_too_large"}, status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
         return stripe_webhook(request)

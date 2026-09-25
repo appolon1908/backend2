@@ -1,5 +1,13 @@
 FROM python:3.11-slim-bookworm
 
+ARG SOURCE_REVISION=unknown
+ARG APP_VERSION=development
+ARG BUILD_CREATED=unknown
+LABEL org.opencontainers.image.source="https://github.com/appolon1908-hue/backend2" \
+      org.opencontainers.image.revision="${SOURCE_REVISION}" \
+      org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.created="${BUILD_CREATED}"
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
