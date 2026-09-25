@@ -26,7 +26,7 @@ class PaymentViewSet(ViewSet):
         tags=["Payment"],
         request_body=PaymentSerializer,
     )
-    @action(methods=['POST'], detail=False, url_path='stipe-payment')
+    @action(methods=['POST'], detail=False, url_path='stripe-payment')
     def create_payment(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -45,6 +45,11 @@ class PaymentViewSet(ViewSet):
         return Response(
             {"client_secret": payment.get("client_secret")}, 
             status=status.HTTP_201_CREATED)
+
+    @swagger_auto_schema(operation_description="Legacy compatibility alias for the payment endpoint")
+    @action(methods=['POST'], detail=False, url_path='stipe-payment')
+    def create_payment_legacy(self, request):
+        return self.create_payment(request)
     
     
     @swagger_auto_schema(

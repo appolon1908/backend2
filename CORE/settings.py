@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 import os
+import json
 from pathlib import Path
 from decouple import config
 from django.utils.timezone import timedelta
@@ -64,6 +65,7 @@ INSTALLED_APPS = [
     'customers',
     'career_app',
     'payment_app',
+    'lead_capture',
 ]
 
 APPEND_SLASH = False
@@ -271,9 +273,31 @@ EMAIL_FROM = config("EMAIL_FROM", default="sales@codestra.co")
 STRIP_SECRET_KEY = config("STRIP_SECRET_KEY", default="")
 STRIP_PUBLISHABLE_KEY = config("STRIP_PUBLISHABLE_KEY", default="")
 STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
+WEBHOOK_STAGING_MODE = config("WEBHOOK_STAGING_MODE", default=False, cast=bool)
+WEBHOOK_STAGING_SECRET = config("WEBHOOK_STAGING_SECRET", default="")
 
 ODOO_BASE_URL = config("ODOO_BASE_URL", default="https://crm.codestra.co").rstrip("/")
 ODOO_API_TOKEN = config("ODOO_API_TOKEN", default="")
+ODOO_DATABASE = config("ODOO_DATABASE", default="")
+ODOO_CLIENT_ID = config("ODOO_CLIENT_ID", default="")
+ODOO_CLIENT_SECRET = config("ODOO_CLIENT_SECRET", default="")
+ODOO_LEAD_MODEL = config("ODOO_LEAD_MODEL", default="crm.lead")
+ODOO_DEFAULT_TEAM_ID = config("ODOO_DEFAULT_TEAM_ID", default="")
+ODOO_DEFAULT_CAMPAIGN_ID = config("ODOO_DEFAULT_CAMPAIGN_ID", default="")
+ODOO_REQUEST_TIMEOUT_MS = config("ODOO_REQUEST_TIMEOUT_MS", default=8000, cast=int)
+ODOO_FIELD_MAPPING_CONFIRMED = config("ODOO_FIELD_MAPPING_CONFIRMED", default=False, cast=bool)
+ODOO_ROUTING_MAP = json.loads(config("ODOO_ROUTING_MAP", default="{}"))
+LEAD_DELIVERY_MODE = config("LEAD_DELIVERY_MODE", default="mock")
+PUBLIC_DEMO_PHONE = config("PUBLIC_DEMO_PHONE", default="")
+PUBLIC_SALES_PHONE = config("PUBLIC_SALES_PHONE", default="")
+PUBLIC_SITE_URL = config("PUBLIC_SITE_URL", default="https://codestra.co")
+INTERNAL_SERVICE_SECRET = config("INTERNAL_SERVICE_SECRET", default="")
+INTERNAL_SERVICE_ALLOWLIST = [item.strip() for item in config("INTERNAL_SERVICE_ALLOWLIST", default="").split(",") if item.strip()]
+
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"].update({
+    "lead_submission": "10/hour",
+    "analytics_event": "120/minute",
+})
 
 CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://redis:6379/1")
 CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND", default="redis://redis:6379/2")
