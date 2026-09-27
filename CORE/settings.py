@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 import os
+import json
 from pathlib import Path
 from decouple import config
 from django.utils.timezone import timedelta
@@ -64,7 +65,44 @@ INSTALLED_APPS = [
     'customers',
     'career_app',
     'payment_app',
+    'lead_capture',
+    'server_c',
 ]
+
+# Server C is a presentation and request-preparation boundary. Privileged
+# business mutations must fail closed unless the middleware gateway is set.
+MIDDLEWARE_GATEWAY_URL = config("MIDDLEWARE_GATEWAY_URL", default="")
+MIDDLEWARE_GATEWAY_TIMEOUT = config("MIDDLEWARE_GATEWAY_TIMEOUT", cast=float, default=8.0)
+AI_GATEWAY_URL = config("AI_GATEWAY_URL", default="")
+SERVER_C_PLATFORM_VERSION = config("SERVER_C_PLATFORM_VERSION", default="1.0")
+SERVER_C_FEATURE_FLAGS = {
+    "MARKETPLACE_STAGING_ENABLED": True,
+    "MARKETPLACE_SEARCH_ENABLED": True,
+    "MARKETPLACE_TRIAL_REQUESTS_ENABLED": True,
+    "MARKETPLACE_INSTALLATION_REQUESTS_ENABLED": True,
+    "AI_SALES_STAGING_ENABLED": True,
+    "SCRAPER_STAGING_ENABLED": True,
+    "LEAD_ENRICHMENT_ENABLED": True,
+    "LEAD_SCORING_ENABLED": True,
+    "CRM_SUBMISSION_REQUESTS_ENABLED": True,
+    "PUBLIC_WEBSITE_ENABLED": True,
+    "CUSTOMER_PORTAL_STAGING_ENABLED": True,
+    "PARTNER_PORTAL_STAGING_ENABLED": True,
+    "DEVELOPER_PORTAL_STAGING_ENABLED": True,
+    "DOCUMENTATION_PORTAL_ENABLED": True,
+    "ACADEMY_STAGING_ENABLED": True,
+    "AUTOMATIC_MARKETPLACE_INSTALLATION_ENABLED": False,
+    "AUTOMATIC_MARKETPLACE_PRODUCTION_ACTIVATION_ENABLED": False,
+    "AUTOMATIC_PUBLICATION_ENABLED": False,
+    "AUTONOMOUS_OUTREACH_ENABLED": False,
+    "AUTONOMOUS_EMAIL_ENABLED": False,
+    "AUTONOMOUS_SMS_ENABLED": False,
+    "AUTONOMOUS_SOCIAL_MESSAGES_ENABLED": False,
+    "DIRECT_ODOO_WRITES_ENABLED": False,
+    "DIRECT_VICIDIAL_WRITES_ENABLED": False,
+    "UNRESTRICTED_SCRAPING_ENABLED": False,
+    "GLOBAL_PRODUCTION_ACTIVATION_ENABLED": False,
+}
 
 APPEND_SLASH = False
 
@@ -91,6 +129,9 @@ MIDDLEWARE = [
     'middlewares.visitors_details_middleware.VisitorTrackingMiddleware',
     'middlewares.block_ip_address_middleware.BlockBlacklistedIPsMiddleware',
 ]
+
+if ENVIRONMENT == "test":
+    MIDDLEWARE = [item for item in MIDDLEWARE if not item.startswith("middlewares.")]
 
 ROOT_URLCONF = 'CORE.urls'
 
@@ -206,6 +247,9 @@ CACHES = {
     }
 }
 
+if ENVIRONMENT == "test":
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+
 USER_AGENTS_CACHE = 'default'
 
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -271,9 +315,31 @@ EMAIL_FROM = config("EMAIL_FROM", default="sales@codestra.co")
 STRIP_SECRET_KEY = config("STRIP_SECRET_KEY", default="")
 STRIP_PUBLISHABLE_KEY = config("STRIP_PUBLISHABLE_KEY", default="")
 STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
+WEBHOOK_STAGING_MODE = config("WEBHOOK_STAGING_MODE", default=False, cast=bool)
+WEBHOOK_STAGING_SECRET = config("WEBHOOK_STAGING_SECRET", default="")
 
 ODOO_BASE_URL = config("ODOO_BASE_URL", default="https://crm.codestra.co").rstrip("/")
 ODOO_API_TOKEN = config("ODOO_API_TOKEN", default="")
+ODOO_DATABASE = config("ODOO_DATABASE", default="")
+ODOO_CLIENT_ID = config("ODOO_CLIENT_ID", default="")
+ODOO_CLIENT_SECRET = config("ODOO_CLIENT_SECRET", default="")
+ODOO_LEAD_MODEL = config("ODOO_LEAD_MODEL", default="crm.lead")
+ODOO_DEFAULT_TEAM_ID = config("ODOO_DEFAULT_TEAM_ID", default="")
+ODOO_DEFAULT_CAMPAIGN_ID = config("ODOO_DEFAULT_CAMPAIGN_ID", default="")
+ODOO_REQUEST_TIMEOUT_MS = config("ODOO_REQUEST_TIMEOUT_MS", default=8000, cast=int)
+ODOO_FIELD_MAPPING_CONFIRMED = config("ODOO_FIELD_MAPPING_CONFIRMED", default=False, cast=bool)
+ODOO_ROUTING_MAP = json.loads(config("ODOO_ROUTING_MAP", default="{}"))
+LEAD_DELIVERY_MODE = config("LEAD_DELIVERY_MODE", default="mock")
+PUBLIC_DEMO_PHONE = config("PUBLIC_DEMO_PHONE", default="")
+PUBLIC_SALES_PHONE = config("PUBLIC_SALES_PHONE", default="")
+PUBLIC_SITE_URL = config("PUBLIC_SITE_URL", default="https://codestra.co")
+INTERNAL_SERVICE_SECRET = config("INTERNAL_SERVICE_SECRET", default="")
+INTERNAL_SERVICE_ALLOWLIST = [item.strip() for item in config("INTERNAL_SERVICE_ALLOWLIST", default="").split(",") if item.strip()]
+
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"].update({
+    "lead_submission": "10/hour",
+    "analytics_event": "120/minute",
+})
 
 CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://redis:6379/1")
 CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND", default="redis://redis:6379/2")

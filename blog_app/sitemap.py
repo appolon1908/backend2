@@ -1,6 +1,7 @@
 from django.contrib.sitemaps import Sitemap
 from django.urls import reverse
 from .models import Blog
+from lead_capture.routing import INDUSTRIES
 
 class BlogSitemap(Sitemap):
     changefreq = "daily"
@@ -17,7 +18,8 @@ class StaticSitemap(Sitemap):
     changefreq = 'monthly'
 
     def items(self):
-        return ['api-root', 'blog-list', 'blog-list'] 
+        base = ['api-root', 'blog-list', '/ai-receptionist', '/pricing', '/book-demo', '/request-pricing', '/contact', '/thank-you', '/security', '/privacy', '/terms', '/industries']
+        return [*base, *(f'/industries/{item["slug"]}' for item in INDUSTRIES.values())]
 
     def location(self, item):
-        return reverse(item)
+        return item if item.startswith('/') else reverse(item)

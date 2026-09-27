@@ -23,6 +23,7 @@ from drf_yasg import openapi
 from rest_framework import permissions
 from django.conf import settings
 from django.conf.urls.static import static
+from lead_capture.views import MetricsView, ServiceManifestView, ServiceStatusView
 
 from django.contrib.sitemaps.views import sitemap
 
@@ -48,6 +49,10 @@ sitemaps = {
 
 urlpatterns = [
     path('healthz/', lambda request: JsonResponse({'status': 'ok'}), name='healthz'),
+    path('health/live', ServiceStatusView.as_view(), {"check": "live"}, name='health-live'),
+    path('health/ready', ServiceStatusView.as_view(), {"check": "ready"}, name='health-ready'),
+    path('.well-known/codestra-service', ServiceManifestView.as_view(), name='service-manifest'),
+    path('metrics', MetricsView.as_view(), name='metrics'),
     path('admin/', admin.site.urls),
     path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0), name='api-docs'),
     path('api/schema/', schema_view.without_ui(cache_timeout=0), name='api-schema'),
@@ -61,6 +66,9 @@ urlpatterns = [
     path('api/customers/', include('customers.urls')),
     path('api/career/', include('career_app.urls')),
     path('api/payment/', include('payment_app.urls')),
+    path('api/v1/', include('lead_capture.urls')),
+    path('api/v1/', include('server_c.urls')),
+    path('internal/v1/', include('lead_capture.internal_urls')),
     path('api/career/', include('career_app.urls')),
     path(
     "sitemap.xml",

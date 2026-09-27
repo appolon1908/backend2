@@ -38,3 +38,55 @@ class Transaction(models.Model):
     
     def __str__(self):
         return self.transaction_id
+
+
+class StripeWebhookEvent(models.Model):
+    """Durable Stripe event receipt used for idempotent webhook processing."""
+
+    event_id = models.CharField(max_length=255, unique=True)
+    event_type = models.CharField(max_length=120)
+    payload_sha256 = models.CharField(max_length=64)
+    status = models.CharField(max_length=24, default="received")
+    attempts = models.PositiveSmallIntegerField(default=0)
+    last_error = models.CharField(max_length=255, blank=True)
+    received_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["status", "received_at"])]
+
+
+class WebhookSubscription(models.Model):
+    owner = models.ForeignKey("auth_app.User", on_delete=models.CASCADE, related_name="webhook_subscriptions")
+    url = models.URLField(max_length=1000)
+    name = models.CharField(max_length=120)
+    secret = models.CharField(max_length=255)
+    events = models.JSONField(default=list)
+    enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class WebhookDelivery(models.Model):
+    class Status(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        DELIVERED = "delivered", "Delivered"
+        FAILED = "failed", "Failed"
+        RETRYING = "retrying", "Retrying"
+
+    subscription = models.ForeignKey(WebhookSubscription, on_delete=models.CASCADE, related_name="deliveries")
+    event_id = models.UUIDField(default=uuid.uuid4, unique=True)
+    event_type = models.CharField(max_length=120)
+    payload = models.JSONField(default=dict)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.QUEUED)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    attempt_history = models.JSONField(default=list)
+    response_code = models.PositiveSmallIntegerField(null=True, blank=True)
+    response_body = models.TextField(blank=True)
+    error = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
