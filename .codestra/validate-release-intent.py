@@ -228,6 +228,7 @@ BACKEND_PRODUCTION_VALIDATOR_SHA256 = (
     "6006bbc7850ce7666de926b6cad2585b"
     "83d2fce102104543b871530f11115f20"
 )
+BACKEND2_PRODUCTION_VALIDATOR_SHA256 = "0000000000000000000000000000000000000000000000000000000000000000"
 EXPECTED_CHECK_WORKFLOW_EXECUTABLE_SHA256 = {
     "appolon1908-hue/Infustruction-repo": {
         ".github/workflows/production-orchestrator-contract.yml": {
@@ -312,7 +313,7 @@ EXPECTED_CHECK_WORKFLOW_EXECUTABLE_SHA256 = {
     },
     "appolon1908/backend2": {
         ".github/workflows/production-orchestrator-contract.yml": {
-            ".codestra/validate-production-orchestrator-contract.py": SHARED_PRODUCTION_VALIDATOR_SHA256,
+            ".codestra/validate-production-orchestrator-contract.py": BACKEND2_PRODUCTION_VALIDATOR_SHA256,
         },
     },
     "appolon1908-hue/beyvra-frontend": {
