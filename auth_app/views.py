@@ -116,13 +116,16 @@ class AuthViewSet(ViewSet):
         operation_summary="Log out user",
         tags=["Auth"],
     )
-    @action(detail=False, methods=["POST"], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=["POST"], authentication_classes=[], permission_classes=[AllowAny])
     def logout(self, request):
+        from rest_framework.authentication import SessionAuthentication
+
+        SessionAuthentication().enforce_csrf(request)
         refresh_token = request.COOKIES.get(settings.AUTH_REFRESH_COOKIE)
         if refresh_token:
             try:
                 RefreshToken(refresh_token).blacklist()
-            except Exception:
+            except TokenError:
                 pass
         response = Response(status=status.HTTP_205_RESET_CONTENT)
         return clear_auth_cookies(response)
