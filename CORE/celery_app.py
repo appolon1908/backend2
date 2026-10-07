@@ -28,5 +28,9 @@ app.conf.beat_schedule = {
     'send_event_reminders': {
         'task': 'calendar_app.tasks.send_event_reminders',
         'schedule': crontab(minute=0, hour=0),
+    },
+    'recover_pending_signup_syncs': {
+        'task': 'auth_app.tasks.enqueue_pending_signup_syncs',
+        'schedule': crontab(minute='*/5'),
     }
 }
