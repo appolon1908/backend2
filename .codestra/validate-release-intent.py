@@ -395,8 +395,8 @@ EXPECTED_REQUIRED_CHECK_SOURCE_CLOSURE_SHA256 = {
         "87be9db4f7e93698a37f860fdd453135"
     ),
     "appolon1908/backend2": (
-        "fa191e95756aec0a8987425eb697eb8e"
-        "2316d7b59ba77e6cd10bb52b10c2c43a"
+        "43cd491300b65c3946af92346e362579"
+        "005b8d7012fb5bde0cf0e8f10a2114ce"
     ),
     "appolon1908-hue/beyvra-frontend": (
         "ce51e23c535871d23306264bb3806bb1"
