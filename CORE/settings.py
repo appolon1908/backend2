@@ -221,7 +221,7 @@ CKEDITOR_ALLOW_NONIMAGE_FILES = True
 REST_FRAMEWORK = {
 
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'CORE.authentication.CookieJWTAuthentication',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     "PAGE_SIZE": 10,
@@ -264,6 +264,16 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_LIFETIME": timedelta(minutes=5),
     "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=1),
 }
+
+AUTH_ACCESS_COOKIE = config("AUTH_ACCESS_COOKIE", default="codestra_access")
+AUTH_REFRESH_COOKIE = config("AUTH_REFRESH_COOKIE", default="codestra_refresh")
+AUTH_COOKIE_SECURE = config("AUTH_COOKIE_SECURE", cast=bool, default=not DEBUG)
+AUTH_COOKIE_SAMESITE = "Strict"
+AUTH_ACCESS_COOKIE_MAX_AGE = int(SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds())
+AUTH_REFRESH_COOKIE_MAX_AGE = int(SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds())
+CSRF_COOKIE_SAMESITE = "Strict"
+CSRF_COOKIE_HTTPONLY = False
+CORS_ALLOW_CREDENTIALS = True
 
 BASE_URL=config("BASE_URL", default="http://localhost:8000")
 

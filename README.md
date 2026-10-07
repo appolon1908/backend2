@@ -31,6 +31,17 @@ Stripe payment amounts are server-authoritative. Clients submit a product_code;
 the amount is resolved from the server-side PAYMENT_PRICE_CATALOG. Never accept
 or trust a browser-supplied payment amount.
 
+### Browser authentication
+
+Browser sessions use short-lived JWT access and refresh tokens stored only in
+Secure, HttpOnly, SameSite=Strict cookies. The SPA sends credentials and
+Django's X-CSRFToken header on unsafe requests. Tokens are not returned to
+browser JavaScript or stored in localStorage.
+
+Signup is locally authoritative: the user is committed first, then CRM
+projection is queued asynchronously through Celery -> Middleware -> Odoo.
+Temporary Middleware/Odoo outages do not block account creation.
+
 ## Production
 
 The combined manifest is `deploy/compose.production.yaml`. Caddy obtains and renews TLS certificates and routes the frontend and backend by path. Production requires:
