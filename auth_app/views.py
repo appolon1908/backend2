@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework.pagination import LimitOffsetPagination
 from django.db import models, transaction
@@ -27,7 +28,7 @@ from auth_app.docs.auth_response import LOGIN_RESPONSE
 from helpers.cache_manager import CacheManager
 from notification.service import EmailService
 from .cookies import clear_auth_cookies, set_auth_cookies
-from .tasks import sync_signup_to_middleware
+from .tasks import queue_signup_sync, signup_payload, sync_signup_to_middleware
 
 
 class AuthViewSet(ViewSet):
@@ -44,43 +45,27 @@ class AuthViewSet(ViewSet):
         serializer = UserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        # check user does not exist
-        if User.objects.filter(email=serializer.validated_data['email']).exists():
-            return Response({'message': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # user = User.objects.create_user(
-        #     email=serializer.validated_data['email'],
-        #     first_name=serializer.validated_data['first_name'],
-        #     last_name=serializer.validated_data['last_name'],
-        #     phone_number=serializer.validated_data.get('phone_number'),
-        #     password=serializer.validated_data['password'],
-        #     timezone=serializer.validated_data.get('timezone'),
-        # )
-        
-    
-        user = User.objects.create_user(
-            email=serializer.validated_data["email"],
-            first_name=serializer.validated_data["first_name"],
-            last_name=serializer.validated_data["last_name"],
-            phone_number=serializer.validated_data.get("phone_number"),
-            password=serializer.validated_data["password"],
-            timezone=serializer.validated_data.get("timezone"),
-            plan_type=serializer.validated_data.get("plan_type", "FREE"),
-        )
-
-        profile_picture = request.FILES.get("profile_picture")
-        if profile_picture:
-            user.profile_picture.save(profile_picture.name, profile_picture)
-
-        transaction.on_commit(
-            lambda: sync_signup_to_middleware.delay(user.pk),
-            robust=True,
-        )
+        with transaction.atomic():
+            user = User.objects.create_user(
+                email=serializer.validated_data["email"],
+                first_name=serializer.validated_data["first_name"],
+                last_name=serializer.validated_data["last_name"],
+                phone_number=serializer.validated_data.get("phone_number"),
+                password=serializer.validated_data["password"],
+                timezone=serializer.validated_data.get("timezone"),
+                plan_type=serializer.validated_data.get("plan_type", "FREE"),
+            )
+            profile_picture = request.FILES.get("profile_picture")
+            if profile_picture:
+                user.profile_picture.save(profile_picture.name, profile_picture)
+            user.crm_sync_payload = signup_payload(user)
+            user.save(update_fields=["crm_sync_payload"])
+            transaction.on_commit(lambda: queue_signup_sync(user.pk))
 
         return Response(
             {
                 "message": "Sign up successful",
-                "crm_sync": "queued",
+                "crm_sync": "pending",
             },
             status=status.HTTP_201_CREATED,
         )
@@ -106,7 +91,7 @@ class AuthViewSet(ViewSet):
         password = request.data.get('password')
         
         user = User.objects.filter(email=email).first()
-        if not user:
+        if not user or not user.is_active:
             return Response({'message': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
         
         user_password = check_password(password, user.password)
@@ -161,7 +146,13 @@ class AuthViewSet(ViewSet):
             )
 
         serializer = TokenRefreshSerializer(data={"refresh": refresh})
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError:
+            return clear_auth_cookies(Response(
+                {"detail": "Refresh session is invalid or expired"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            ))
         access = serializer.validated_data["access"]
         rotated_refresh = serializer.validated_data.get("refresh", refresh)
 

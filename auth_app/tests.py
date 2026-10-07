@@ -34,6 +34,7 @@ class UserAuthorizationTests(APITestCase):
 
 
 class SignupMiddlewareBoundaryTests(APITestCase):
+    @override_settings(MIDDLEWARE_BASE_URL="https://middleware.example", MIDDLEWARE_ACCESS_TOKEN="test-token", MIDDLEWARE_TENANT_ID="codestra")
     @patch("auth_app.views.sync_signup_to_middleware.delay")
     def test_signup_commits_locally_and_queues_crm_sync(self, delay):
         with self.captureOnCommitCallbacks(execute=True):
@@ -48,7 +49,7 @@ class SignupMiddlewareBoundaryTests(APITestCase):
                 format="json",
             )
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.data["crm_sync"], "queued")
+        self.assertEqual(response.data["crm_sync"], "pending")
         user = get_user_model().objects.get(email="new@example.invalid")
         self.assertEqual(user.crm_sync_status, "pending")
         delay.assert_called_once_with(user.pk)
@@ -124,7 +125,7 @@ class SignupSyncTaskTests(APITestCase):
     @patch("auth_app.tasks.submit_contact")
     def test_task_records_middleware_operation(self, submit_contact):
         submit_contact.return_value = {
-            "operation_id": "op-signup-1",
+            "operation_id": "253141aa-1578-48e3-b5f1-148ba27cc9f6",
             "state": "accepted",
         }
         user = get_user_model().objects.create_user(
@@ -135,7 +136,7 @@ class SignupSyncTaskTests(APITestCase):
         )
         result = sync_signup_to_middleware.apply(args=[user.pk]).get()
         user.refresh_from_db()
-        self.assertEqual(result["status"], "synced")
-        self.assertEqual(user.crm_sync_status, "synced")
-        self.assertEqual(user.crm_sync_operation_id, "op-signup-1")
+        self.assertEqual(result["status"], "submitted")
+        self.assertEqual(user.crm_sync_status, "submitted")
+        self.assertEqual(user.crm_sync_operation_id, "253141aa-1578-48e3-b5f1-148ba27cc9f6")
         submit_contact.assert_called_once()

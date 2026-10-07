@@ -96,6 +96,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     timezone = models.CharField(max_length=100, default='UTC', null=True, blank=True)
     #id asigned by odoo to identify the costumer or client there.
     odoo_id = models.IntegerField(null=True, blank=True)
+    crm_sync_payload = models.JSONField(default=dict, blank=True)
     crm_sync_status = models.CharField(max_length=20, default="pending")
     crm_sync_operation_id = models.CharField(max_length=128, blank=True, default="")
     crm_sync_last_error = models.CharField(max_length=1000, blank=True, default="")
