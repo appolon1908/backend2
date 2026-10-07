@@ -17,13 +17,16 @@
   "tests": {
     "baseline": "18 passed",
     "red": "24 tests reproduced 43 failures and 4 errors; inactive login and recovery/calendar tests also failed before their fixes",
-    "full_suite": "46 passed",
+    "full_suite": "49 passed; includes 3 new logout regressions",
     "migration_check": "PASS no changes detected",
     "production_wsgi": "PASS CORE.settings WSGIHandler",
-    "direct_odoo_write_guard": "PASS"
+    "direct_odoo_write_guard": "PASS",
+    "logout_red": "3 failures reproduced: expired access returned401, absent access returned401, missing CSRF returned401 instead403"
   },
-  "timestamp": "2026-10-07T15:06:59.292288+00:00",
-  "review": "Independent review pending exact commit",
+  "timestamp": "2026-10-07T15:19:14.976500+00:00",
+  "review": "fedf5f2 independently accepted; logout successor pending independent review",
   "runtime": "NOT_DEPLOYED",
-  "ci": "PENDING"
+  "ci": "PENDING",
+  "logout_scope": "User-authorized GH18 session repair; parent explicitly assigned minimal expired-access logout fix",
+  "logout_base": "fedf5f2bfb29196be605310d9e85e213597f0169"
 }

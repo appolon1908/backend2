@@ -146,3 +146,45 @@ class UnavailableCalendarTests(APITestCase):
         for url in ["/api/calendar/", "/api/calendar/123/"]:
             with self.subTest(url=url):
                 self.assertEqual(self.client.get(url).status_code, 503)
+
+class LogoutExpiryTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(email="logout-expiry@example.invalid", password="StrongPass123!")
+        self.browser = APIClient(enforce_csrf_checks=True)
+        login = self.browser.post("/api/auth/login/", {"email": self.user.email, "password": "StrongPass123!"}, format="json")
+        self.assertEqual(login.status_code, 200)
+        self.csrf = login.cookies["csrftoken"].value
+        self.refresh = login.cookies["codestra_refresh"].value
+
+    def test_logout_after_access_expiry_revokes_refresh_and_clears_cookies(self):
+        from datetime import timedelta
+        from rest_framework_simplejwt.tokens import AccessToken
+        token = AccessToken.for_user(self.user)
+        token.set_exp(lifetime=timedelta(seconds=-1))
+        self.browser.cookies["codestra_access"] = str(token)
+        response = self.browser.post("/api/auth/logout/", {}, format="json", HTTP_X_CSRFTOKEN=self.csrf)
+        self.assertEqual(response.status_code, 205)
+        for name in ["codestra_access", "codestra_refresh"]:
+            self.assertEqual(response.cookies[name].value, "")
+            self.assertEqual(response.cookies[name]["max-age"], 0)
+        self.browser.cookies["codestra_refresh"] = self.refresh
+        response = self.browser.post("/api/auth/refresh-session/", {}, format="json", HTTP_X_CSRFTOKEN=self.csrf)
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(self.browser.get("/api/auth/session/").status_code, 401)
+
+    def test_logout_is_idempotent_without_access_or_valid_refresh(self):
+        del self.browser.cookies["codestra_access"]
+        self.browser.cookies["codestra_refresh"] = "malformed-refresh"
+        for _ in range(2):
+            response = self.browser.post("/api/auth/logout/", {}, format="json", HTTP_X_CSRFTOKEN=self.csrf)
+            self.assertEqual(response.status_code, 205)
+            for name in ["codestra_access", "codestra_refresh"]:
+                self.assertEqual(response.cookies[name].value, "")
+
+    def test_logout_rejects_missing_csrf_without_revoking_refresh(self):
+        self.browser.cookies["codestra_access"] = "malformed-access"
+        response = self.browser.post("/api/auth/logout/", {}, format="json")
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn("codestra_refresh", response.cookies)
+        response = self.browser.post("/api/auth/refresh-session/", {}, format="json", HTTP_X_CSRFTOKEN=self.csrf)
+        self.assertEqual(response.status_code, 200)
