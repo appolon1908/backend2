@@ -6,11 +6,10 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.pagination import LimitOffsetPagination
-import requests
 from django.db import models
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import check_password
-from django.conf import settings
+from helpers.middleware_client import MiddlewareConfigurationError, MiddlewareRequestError, submit_contact
 
 from .models import User, Visitor, BlacklistedIP
 from .serializers import (
@@ -56,67 +55,47 @@ class AuthViewSet(ViewSet):
         # )
         
     
-        #Sent to odoo>
+        user = User.objects.create_user(
+            email=serializer.validated_data["email"],
+            first_name=serializer.validated_data["first_name"],
+            last_name=serializer.validated_data["last_name"],
+            phone_number=serializer.validated_data.get("phone_number"),
+            password=serializer.validated_data["password"],
+            timezone=serializer.validated_data.get("timezone"),
+            plan_type=serializer.validated_data.get("plan_type", "FREE"),
+        )
 
-        odoo_data = {
-            'first_name': f"{request.data['first_name']}", 
-            'last_name': f"{request.data['last_name']}",
-            'email': request.data['email'],
-            'phone': request.data.get('phone_number'),
-            'plan_type': request.data.get('plan_type', 'FREE'), 
-            #'profile_picture': profile_picture 
-    }
+        profile_picture = request.FILES.get("profile_picture")
+        if profile_picture:
+            user.profile_picture.save(profile_picture.name, profile_picture)
 
-        odoo_api_url = f"{settings.ODOO_BASE_URL}/api/website/register"
+        sync_state = "queued"
+        middleware_operation = None
         try:
-            odoo_response = requests.post(odoo_api_url, json=odoo_data, timeout=10)
-        except requests.RequestException:
-            return Response({"message": "Registration service is temporarily unavailable"}, status=502)
+            middleware_operation = submit_contact(
+                {
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "email": user.email,
+                    "phone": user.phone_number,
+                    "plan_type": user.plan_type,
+                    "source": "codestra-signup",
+                },
+                idempotency_key=f"codestra-signup-{user.pk}",
+            )
+        except MiddlewareConfigurationError:
+            sync_state = "pending"
+        except MiddlewareRequestError:
+            sync_state = "failed"
 
-        if odoo_response.status_code == 200:
-            try:
-                odoo_response_data = odoo_response.json()
-                odoo_client_id = odoo_response_data.get("result", {}).get('id')
-
-                if odoo_client_id:
-                    
-                    user = User.objects.create_user(
-                    email=serializer.validated_data['email'],
-                    first_name=serializer.validated_data['first_name'],
-                    last_name=serializer.validated_data['last_name'],
-                    phone_number=serializer.validated_data.get('phone_number'),
-                    password=serializer.validated_data['password'],
-                    timezone=serializer.validated_data.get('timezone'),
-                    odoo_id=odoo_client_id,  
-                )
-                   
-                    profile_picture = request.FILES.get('profile_picture')
-                   
-                    if profile_picture:
-                        user.profile_picture.save(profile_picture.name, profile_picture)
-
-                    return Response({
-                        "message": "Sign up successful",
-                        "odoo_client_id": odoo_client_id
-                },      status=status.HTTP_201_CREATED)
-
-                else:
-                    return Response({
-                    "message": "Error: No Odoo ID returned",
-                    "error": "Odoo API did not return a valid client ID"
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-            except ValueError as e:
-                return Response({
-                    "message": "Error processing Odoo response",
-                    "error": str(e)
-            },      status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-        else:
-            return Response({
-                "message": "Error communicating with Odoo",
-                "error": f"Odoo API returned status code {odoo_response.status_code}"
-        },      status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {
+                "message": "Sign up successful",
+                "crm_sync": sync_state,
+                "middleware_operation": middleware_operation,
+            },
+            status=status.HTTP_201_CREATED,
+        )
     
 
     @swagger_auto_schema(

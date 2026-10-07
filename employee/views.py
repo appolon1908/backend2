@@ -16,6 +16,7 @@ from drf_yasg.utils import swagger_auto_schema
 
 from .models import Employee, SocialMedia
 import requests
+from helpers.middleware_client import MiddlewareConfigurationError, MiddlewareRequestError, submit_contact_task
 
 from calendar_app.models import Event
 from calendar_app.serializers import EventSerializer
@@ -115,28 +116,17 @@ class EmployeeViewset(viewsets.ViewSet):
 
    
     def send_add_calendar_event_to_odoo(self, event_data):
-        odoo_url = f"{settings.ODOO_BASE_URL}/api/website/add-activity"
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {settings.ODOO_API_TOKEN}'
-        }
-
-        try:
-           
-            response = requests.post(odoo_url, headers=headers, json=event_data, timeout=10)
-
-          
-            if response.status_code == 200:
-                return response.json()
-            else:
-               
-                print(f"Error adding event to Odoo: {response.status_code} - {response.text}")
-                return response.json()  
-        except requests.exceptions.RequestException as e:
-          
-            print(f"Error connecting to Odoo: {e}")
+        contact_id = event_data.get("customer_id")
+        if not contact_id:
             return None
-        
+        try:
+            return submit_contact_task(
+                contact_id,
+                event_data,
+                idempotency_key=f"codestra-calendar-{contact_id}-{event_data.get('start_date', '')}",
+            )
+        except (MiddlewareConfigurationError, MiddlewareRequestError):
+            return None
     
     @swagger_auto_schema(
         operation_description="List all employees",

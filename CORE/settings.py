@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import json
 import os
 from pathlib import Path
 from decouple import config
@@ -272,6 +273,17 @@ STRIP_SECRET_KEY = config("STRIP_SECRET_KEY", default="")
 STRIP_PUBLISHABLE_KEY = config("STRIP_PUBLISHABLE_KEY", default="")
 STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
 
+try:
+    PAYMENT_PRICE_CATALOG = json.loads(config("PAYMENT_PRICE_CATALOG", default="{}"))
+except json.JSONDecodeError as exc:
+    raise RuntimeError("PAYMENT_PRICE_CATALOG must be valid JSON") from exc
+
+MIDDLEWARE_BASE_URL = config("MIDDLEWARE_BASE_URL", default="http://middleware:8095").rstrip("/")
+MIDDLEWARE_ACCESS_TOKEN = config("MIDDLEWARE_ACCESS_TOKEN", default="")
+MIDDLEWARE_TENANT_ID = config("MIDDLEWARE_TENANT_ID", default="codestra")
+
+# Read-only legacy Odoo access remains temporarily for employee/calendar reads.
+# All effect-capable writes must go through Middleware.
 ODOO_BASE_URL = config("ODOO_BASE_URL", default="https://crm.codestra.co").rstrip("/")
 ODOO_API_TOKEN = config("ODOO_API_TOKEN", default="")
 

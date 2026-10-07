@@ -26,3 +26,21 @@ class UserAuthorizationTests(APITestCase):
     def test_non_admin_cannot_list_visitors(self):
         response = self.client.get("/api/auth/visitors/")
         self.assertEqual(response.status_code, 403)
+
+
+class SignupMiddlewareBoundaryTests(APITestCase):
+    def test_signup_succeeds_when_middleware_is_not_configured(self):
+        with self.settings(MIDDLEWARE_ACCESS_TOKEN=""):
+            response = self.client.post(
+                "/api/auth/signup/",
+                {
+                    "email": "new@example.invalid",
+                    "password": "StrongPass123!",
+                    "first_name": "New",
+                    "last_name": "User",
+                },
+                format="json",
+            )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["crm_sync"], "pending")
+        self.assertTrue(get_user_model().objects.filter(email="new@example.invalid").exists())
