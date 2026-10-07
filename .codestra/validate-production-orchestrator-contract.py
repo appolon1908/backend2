@@ -29,6 +29,7 @@ RELEASE_VALIDATOR_NON_SELF_REFERENTIAL_BINDINGS = frozenset(
         "KEYCLOAK_PRODUCTION_VALIDATOR_SHA256",
         "MIDDLEWARE_PRODUCTION_VALIDATOR_SHA256",
         "BACKEND_PRODUCTION_VALIDATOR_SHA256",
+        "BACKEND2_PRODUCTION_VALIDATOR_SHA256",
         "EXPECTED_REQUIRED_CHECK_SOURCE_CLOSURE_SHA256",
     }
 )
@@ -54,7 +55,7 @@ EXPECTED_RELEASE_VALIDATOR_SECURITY_SHA256 = {
     "appolon1908-hue/Middleware-": MIDDLEWARE_RELEASE_VALIDATOR_SECURITY_SHA256,
     "appolon1908-hue/codestra": STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256,
     "appolon1908-hue/beyvra-backend": BACKEND_RELEASE_VALIDATOR_SECURITY_SHA256,
-    "appolon1908-hue/backend2": STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256,
+    "appolon1908/backend2": "99be81d222574af7df51c27cdc76acb05f0f272894fd4b5938586c08430bc826",
     "appolon1908-hue/beyvra-frontend": STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256,
     "appolon1908-hue/scrapper": STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256,
     "appolon1908-hue/Breero.com": STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256,
@@ -362,7 +363,7 @@ EXPECTED_IDENTITIES: dict[str, tuple[int, str, bool, bool]] = {
     "appolon1908-hue/Middleware-": (1347559071, "canonical-middleware", False, False),
     "appolon1908-hue/codestra": (1319808791, "application", True, False),
     "appolon1908-hue/beyvra-backend": (1319831182, "application", True, False),
-    "appolon1908-hue/backend2": (1319903950, "application", True, False),
+    "appolon1908/backend2": (1319903950, "application", True, False),
     "appolon1908-hue/beyvra-frontend": (1320246591, "application", True, False),
     "appolon1908-hue/scrapper": (1329513537, "migration-evidence", False, False),
     "appolon1908-hue/Breero.com": (1331354808, "application", True, False),
@@ -402,7 +403,7 @@ EXPECTED_ARTIFACT_POLICIES: dict[
         "github",
         "oci",
     ),
-    "appolon1908-hue/backend2": (
+    "appolon1908/backend2": (
         ("ghcr.io/appolon1908-hue/backend2",),
         True,
         True,

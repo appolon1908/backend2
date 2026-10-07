@@ -8,7 +8,7 @@ from .models import ContactUs, ElectronicBillingInterest, TaxPayer
 
 
 class PublicLeadEndpointsTests(APITestCase):
-    @override_settings(ODOO_API_TOKEN="")
+    @override_settings(MIDDLEWARE_ACCESS_TOKEN="")
     @patch("cms.views.EmailService.send_async")
     def test_contact_is_accepted_and_saved_when_odoo_is_not_configured(self, _send_email):
         response = self.client.post("/api/cms/contact-us/", {
@@ -22,11 +22,15 @@ class PublicLeadEndpointsTests(APITestCase):
         contact = ContactUs.objects.get()
         self.assertEqual(contact.odoo_sync_status, "pending")
 
-    @override_settings(ODOO_API_TOKEN="odoo-test-token", ODOO_BASE_URL="https://odoo.example")
-    @patch("cms.odoo.requests.post")
+    @override_settings(
+        MIDDLEWARE_ACCESS_TOKEN="middleware-test-token",
+        MIDDLEWARE_BASE_URL="https://middleware.example",
+        MIDDLEWARE_TENANT_ID="codestra",
+    )
+    @patch("helpers.middleware_client.requests.post")
     def test_billing_interest_is_sent_to_odoo(self, post):
         post.return_value = Mock(
-            json=Mock(return_value={"lead_id": 42}),
+            json=Mock(return_value={"operation_id": "op-42"}),
             raise_for_status=Mock(),
         )
         response = self.client.post("/api/cms/electronic-billing-interest/", {
@@ -40,7 +44,7 @@ class PublicLeadEndpointsTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         interest = ElectronicBillingInterest.objects.get()
         self.assertEqual(interest.odoo_sync_status, "synced")
-        self.assertEqual(interest.odoo_record_id, "42")
+        self.assertEqual(interest.odoo_record_id, "op-42")
         self.assertEqual(post.call_args.kwargs["timeout"], 10)
 
     def test_billing_interest_requires_contact_consent(self):
@@ -55,7 +59,7 @@ class PublicLeadEndpointsTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(ElectronicBillingInterest.objects.count(), 0)
 
-    @override_settings(ODOO_API_TOKEN="")
+    @override_settings(MIDDLEWARE_ACCESS_TOKEN="")
     def test_taxpayer_registration_is_kept_when_odoo_is_offline(self):
         response = self.client.post("/api/cms/tax-payer/", {
             "tax_payer_rnc": "123456789",

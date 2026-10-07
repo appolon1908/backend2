@@ -5,9 +5,9 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework.pagination import LimitOffsetPagination
-import requests
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import check_password
 from django.conf import settings
@@ -26,6 +26,8 @@ from auth_app.docs.auth_response import LOGIN_RESPONSE
 
 from helpers.cache_manager import CacheManager
 from notification.service import EmailService
+from .cookies import clear_auth_cookies, set_auth_cookies
+from .tasks import enqueue_signup_sync
 
 
 class AuthViewSet(ViewSet):
@@ -37,7 +39,7 @@ class AuthViewSet(ViewSet):
         tags=["Auth"],
         request_body=UserSerializer,
     )
-    @action(detail=False, methods=['POST'])
+    @action(detail=False, methods=['POST'], authentication_classes=[])
     def signup(self, request):
         serializer = UserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -56,67 +58,32 @@ class AuthViewSet(ViewSet):
         # )
         
     
-        #Sent to odoo>
+        user = User.objects.create_user(
+            email=serializer.validated_data["email"],
+            first_name=serializer.validated_data["first_name"],
+            last_name=serializer.validated_data["last_name"],
+            phone_number=serializer.validated_data.get("phone_number"),
+            password=serializer.validated_data["password"],
+            timezone=serializer.validated_data.get("timezone"),
+            plan_type=serializer.validated_data.get("plan_type", "FREE"),
+        )
 
-        odoo_data = {
-            'first_name': f"{request.data['first_name']}", 
-            'last_name': f"{request.data['last_name']}",
-            'email': request.data['email'],
-            'phone': request.data.get('phone_number'),
-            'plan_type': request.data.get('plan_type', 'FREE'), 
-            #'profile_picture': profile_picture 
-    }
+        profile_picture = request.FILES.get("profile_picture")
+        if profile_picture:
+            user.profile_picture.save(profile_picture.name, profile_picture)
 
-        odoo_api_url = f"{settings.ODOO_BASE_URL}/api/website/register"
-        try:
-            odoo_response = requests.post(odoo_api_url, json=odoo_data, timeout=10)
-        except requests.RequestException:
-            return Response({"message": "Registration service is temporarily unavailable"}, status=502)
+        transaction.on_commit(
+            lambda: enqueue_signup_sync(user.pk),
+            robust=True,
+        )
 
-        if odoo_response.status_code == 200:
-            try:
-                odoo_response_data = odoo_response.json()
-                odoo_client_id = odoo_response_data.get("result", {}).get('id')
-
-                if odoo_client_id:
-                    
-                    user = User.objects.create_user(
-                    email=serializer.validated_data['email'],
-                    first_name=serializer.validated_data['first_name'],
-                    last_name=serializer.validated_data['last_name'],
-                    phone_number=serializer.validated_data.get('phone_number'),
-                    password=serializer.validated_data['password'],
-                    timezone=serializer.validated_data.get('timezone'),
-                    odoo_id=odoo_client_id,  
-                )
-                   
-                    profile_picture = request.FILES.get('profile_picture')
-                   
-                    if profile_picture:
-                        user.profile_picture.save(profile_picture.name, profile_picture)
-
-                    return Response({
-                        "message": "Sign up successful",
-                        "odoo_client_id": odoo_client_id
-                },      status=status.HTTP_201_CREATED)
-
-                else:
-                    return Response({
-                    "message": "Error: No Odoo ID returned",
-                    "error": "Odoo API did not return a valid client ID"
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-            except ValueError as e:
-                return Response({
-                    "message": "Error processing Odoo response",
-                    "error": str(e)
-            },      status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-        else:
-            return Response({
-                "message": "Error communicating with Odoo",
-                "error": f"Odoo API returned status code {odoo_response.status_code}"
-        },      status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {
+                "message": "Sign up successful",
+                "crm_sync": "pending",
+            },
+            status=status.HTTP_201_CREATED,
+        )
     
 
     @swagger_auto_schema(
@@ -133,7 +100,7 @@ class AuthViewSet(ViewSet):
             ),
         responses=LOGIN_RESPONSE
     )
-    @action(detail=False, methods=['POST'])
+    @action(detail=False, methods=['POST'], authentication_classes=[])
     def login(self, request):
         email = request.data.get('email')
         password = request.data.get('password')
@@ -147,36 +114,77 @@ class AuthViewSet(ViewSet):
             return Response({"error": "incorrect email/password"}, status=status.HTTP_400_BAD_REQUEST)
         
         token = RefreshToken.for_user(user)
-        data = {
-            "user": GetUserSerializer(instance=user).data,
-            "token": {"refresh": str(token), "access": str(token.access_token)},
-        }
-
-        return Response(data, status=status.HTTP_200_OK)
+        response = Response(
+            {"user": GetUserSerializer(instance=user).data},
+            status=status.HTTP_200_OK,
+        )
+        return set_auth_cookies(
+            response,
+            request,
+            access=str(token.access_token),
+            refresh=str(token),
+        )
     
     
     @swagger_auto_schema(
-        operation_description="Log Out user",
-        operation_summary="Log Out user",
+        operation_description="Log out current browser session",
+        operation_summary="Log out user",
         tags=["Auth"],
-        request_body=openapi.Schema(
-                type=openapi.TYPE_OBJECT,
-                properties={
-                    'refresh': openapi.Schema(type=openapi.TYPE_STRING, description='refresh_token'),
-                },
-                required=['refresh']
-            )
     )
-    @action(detail=False, methods=['POST'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=["POST"], permission_classes=[IsAuthenticated])
     def logout(self, request):
-        try:
-            refresh_token = request.data["refresh"]
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            return Response(status=status.HTTP_205_RESET_CONTENT)
-        except Exception as e:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-    
+        refresh_token = request.COOKIES.get(settings.AUTH_REFRESH_COOKIE)
+        if refresh_token:
+            try:
+                RefreshToken(refresh_token).blacklist()
+            except Exception:
+                pass
+        response = Response(status=status.HTTP_205_RESET_CONTENT)
+        return clear_auth_cookies(response)
+
+    @action(
+        detail=False,
+        methods=["POST"],
+        url_path="refresh-session",
+        authentication_classes=[],
+        permission_classes=[AllowAny],
+    )
+    def refresh_session(self, request):
+        from rest_framework.authentication import SessionAuthentication
+
+        SessionAuthentication().enforce_csrf(request)
+        refresh = request.COOKIES.get(settings.AUTH_REFRESH_COOKIE)
+        if not refresh:
+            return Response(
+                {"detail": "No refresh session"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        serializer = TokenRefreshSerializer(data={"refresh": refresh})
+        serializer.is_valid(raise_exception=True)
+        access = serializer.validated_data["access"]
+        rotated_refresh = serializer.validated_data.get("refresh", refresh)
+
+        response = Response({"detail": "refreshed"}, status=status.HTTP_200_OK)
+        return set_auth_cookies(
+            response,
+            request,
+            access=access,
+            refresh=rotated_refresh,
+        )
+
+    @action(
+        detail=False,
+        methods=["GET"],
+        url_path="session",
+        permission_classes=[IsAuthenticated],
+    )
+    def session(self, request):
+        return Response(
+            {"user": GetUserSerializer(instance=request.user).data},
+            status=status.HTTP_200_OK,
+        )
+
     @swagger_auto_schema(
         operation_description="Endpoint for users who forgot their password",
         operation_summary="Endpoint for users who forgot their password",
