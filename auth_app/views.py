@@ -27,7 +27,7 @@ from auth_app.docs.auth_response import LOGIN_RESPONSE
 from helpers.cache_manager import CacheManager
 from notification.service import EmailService
 from .cookies import clear_auth_cookies, set_auth_cookies
-from .tasks import sync_signup_to_middleware
+from .tasks import enqueue_signup_sync
 
 
 class AuthViewSet(ViewSet):
@@ -73,14 +73,14 @@ class AuthViewSet(ViewSet):
             user.profile_picture.save(profile_picture.name, profile_picture)
 
         transaction.on_commit(
-            lambda: sync_signup_to_middleware.delay(user.pk),
+            lambda: enqueue_signup_sync(user.pk),
             robust=True,
         )
 
         return Response(
             {
                 "message": "Sign up successful",
-                "crm_sync": "queued",
+                "crm_sync": "pending",
             },
             status=status.HTTP_201_CREATED,
         )
