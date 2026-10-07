@@ -1,0 +1,45 @@
+name: Codestra Hierarchy Governance
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hierarchy-governance:
+    name: hierarchy-governance
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate control-plane manifest
+        shell: python
+        run: |
+          import pathlib, sys, yaml
+          p = pathlib.Path(".codestra/control-plane.yml")
+          if not p.exists():
+              raise SystemExit("missing .codestra/control-plane.yml")
+          data = yaml.safe_load(p.read_text())
+          if data["promotion"]["chain"] != ["development","testing","staging","production"]:
+              raise SystemExit("invalid promotion chain")
+          if data["promotion"].get("force_push_allowed") is not False:
+              raise SystemExit("force pushes must remain disabled")
+          effects = data["effects"]
+          for key in ("production_go","live_capabilities_enabled","external_effects_enabled"):
+              if effects.get(key) is not False:
+                  raise SystemExit(f"{key} must remain false")
+          sections = data.get("sections", [])
+          if len(sections) != 8:
+              raise SystemExit("expected exactly 8 governed workstations")
+          branches = {s["branch"] for s in sections}
+          expected = {f"workstation/ws0{i}-" for i in range(1,9)}
+          if not all(any(b.startswith(prefix) for b in branches) for prefix in expected):
+              raise SystemExit("workstation hierarchy incomplete")
+          print("control-plane governance PASS")
