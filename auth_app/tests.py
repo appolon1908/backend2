@@ -56,6 +56,7 @@ class SignupMiddlewareBoundaryTests(APITestCase):
 
 class BrowserCookieSessionTests(APITestCase):
     def setUp(self):
+        self.client = APIClient(enforce_csrf_checks=True)
         self.user = get_user_model().objects.create_user(
             email="cookie@example.invalid",
             password="StrongPass123!",
