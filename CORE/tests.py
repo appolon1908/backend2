@@ -5,7 +5,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
-from rest_framework.test import APITestCase
+from rest_framework.test import APITestCase, APITransactionTestCase
 from rest_framework_simplejwt.tokens import AccessToken
 
 from blog_app.models import Blog
@@ -110,7 +110,9 @@ class PrivateRecordsTests(APITestCase):
         self.assertEqual(self.client.get(f"/api/blog/{response.data['id']}/").status_code, 200)
 
 
-class PrivateMediaTests(APITestCase):
+class PrivateMediaTests(APITransactionTestCase):
+    # Streaming response.close() emits request_finished and may close a PostgreSQL
+    # connection. Exercise real request lifecycles, not APITestCase's outer atomic block.
     def setUp(self):
         self.directory = TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)

@@ -50,6 +50,7 @@ sitemaps = {
 urlpatterns = [
     path('media/tax/images/<path:filename>', PrivateDocumentView.as_view(), {'category': 'tax'}, name='private-tax-document'),
     path('media/career/<path:filename>', PrivateDocumentView.as_view(), {'category': 'career'}, name='private-career-document'),
+    path('api/leadconnector/', include('leadconnector.urls')),
     path('healthz/', lambda request: JsonResponse({'status': 'ok'}), name='healthz'),
     path('admin/', admin.site.urls),
     path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0), name='api-docs'),
