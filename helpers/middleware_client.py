@@ -1,5 +1,6 @@
+import json
 import logging
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 import requests
 from django.conf import settings
@@ -47,6 +48,11 @@ def accepted_operation_id(body):
 
 def _post(path, payload, *, idempotency_key):
     base_url, token, tenant_id = _config()
+    # A stable, tenant/path-scoped trace preserves the immutable retry envelope.
+    correlation_id = str(uuid5(
+        NAMESPACE_URL,
+        json.dumps([tenant_id, path, idempotency_key], separators=(",", ":")),
+    ))
     try:
         response = requests.post(
             f"{base_url}{path}",
@@ -55,6 +61,7 @@ def _post(path, payload, *, idempotency_key):
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
                 "Idempotency-Key": idempotency_key,
+                "X-Correlation-ID": correlation_id,
             },
             json=payload,
             timeout=10,

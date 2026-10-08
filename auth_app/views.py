@@ -60,7 +60,7 @@ class AuthViewSet(ViewSet):
                 user.profile_picture.save(profile_picture.name, profile_picture)
             user.crm_sync_payload = signup_payload(user)
             user.save(update_fields=["crm_sync_payload"])
-            transaction.on_commit(lambda: queue_signup_sync(user.pk))
+            transaction.on_commit(lambda: queue_signup_sync(user.pk), robust=True)
 
         return Response(
             {

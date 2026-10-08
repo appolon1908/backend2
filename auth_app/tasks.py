@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 @shared_task
 def log_visitor_details(visitor_data):
     """Retain the task imported by the production visitor middleware."""
-    Visitor.objects.create(
+    visitor = Visitor.objects.create(
         ip_address=visitor_data.get("ip_address"),
         page=visitor_data.get("page"),
         device=visitor_data.get("device"),
@@ -28,6 +28,7 @@ def log_visitor_details(visitor_data):
         method=visitor_data.get("method"),
         visited_at=visitor_data.get("visited_at"),
     )
+    return {"status": "saved", "visitor_id": visitor.pk}
 
 
 def signup_payload(user):
@@ -109,3 +110,36 @@ def sync_signup_to_middleware(self, user_id):
         crm_synced_at=None,
     )
     return {"status": "submitted", "operation_id": operation_id}
+
+
+def enqueue_signup_sync(user_id):
+    """Keep main's enqueue entrypoint on the deployed, configuration-gated path."""
+    return queue_signup_sync(user_id)
+
+
+@shared_task
+def enqueue_pending_signup_syncs(limit=100):
+    """Recover only bounded, durable signup intents without replaying acceptance.
+
+    The same eligibility rules are used by retry_pending_signups. Legacy users,
+    already-linked Odoo accounts, and accepted operations are never swept in.
+    No credentials configured means no queue activity and no external effects.
+    """
+    if type(limit) is not int or not 1 <= limit <= 1000:
+        raise ValueError("limit must be an integer between 1 and 1000")
+    try:
+        _config()
+    except MiddlewareConfigurationError:
+        return {"eligible": 0, "queued": 0}
+    user_ids = list(
+        User.objects.filter(
+            crm_sync_status__in=("pending", "failed"),
+            crm_sync_operation_id="",
+            odoo_id__isnull=True,
+        )
+        .exclude(crm_sync_payload={})
+        .order_by("created_at", "pk")
+        .values_list("pk", flat=True)[:limit]
+    )
+    queued = sum(bool(queue_signup_sync(user_id)) for user_id in user_ids)
+    return {"eligible": len(user_ids), "queued": queued}

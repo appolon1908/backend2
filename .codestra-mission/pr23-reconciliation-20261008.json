@@ -1,0 +1,44 @@
+{
+  "repository": "appolon1908/backend2",
+  "issue": 21,
+  "pull_request": 23,
+  "base_sha": "50fa78a972635222fb93e568eee931839a5f1215",
+  "prior_head_sha": "e37d22dc369a01ad2d97e38242fc50d7c51e5e06",
+  "worktree": "/opt/codestra-dev/backend-pr23-fix-20261008",
+  "branch": "fix/backend-pr23-reconcile-20261008",
+  "publish_branch": "certify/leadconnector-deployed-convergence-20261008",
+  "worker_node": "dev-desktop",
+  "sole_writer": "ChatGPT user-directed PR23 repair",
+  "authority": "User: fix backend",
+  "active_linear_issue": "NONE",
+  "status": "REPAIR_CANDIDATE_AWAITING_RUNTIME_CI",
+  "production_effects": false,
+  "runtime_deployed": false,
+  "independent_review": "PENDING",
+  "timestamp": "2026-10-08T20:54:19.310962+00:00",
+  "preserved_deployed_guards": [
+    "private records and media",
+    "inactive login denied",
+    "expired-token logout with CSRF",
+    "frozen signup payload",
+    "strict UUID receipt and submitted-not-synced state",
+    "canonical repository identity",
+    "location/widget/signed webhook binding",
+    "unknown SMS consent and sticky opt-out"
+  ],
+  "preserved_main_additions": [
+    "hierarchy governance and control plane",
+    "periodic signup recovery schedule",
+    "guarded enqueue compatibility function",
+    "visitor task return record",
+    "stable scoped correlation header",
+    "robust post-commit callback without losing the durable signup intent"
+  ],
+  "source_only_red_tests": {
+    "failures": 4,
+    "errors": 0
+  },
+  "django_red_attempt": "Initial Docker startup timed out; no runtime result claimed until log is available",
+  "runtime_regression_tests_added": 11,
+  "verification_note": "Original exact-head local Docker launch timed out under desktop I/O pressure. New isolated PostgreSQL GitHub regression workflow added; no success claimed before its result. Required existing checks unchanged."
+}
