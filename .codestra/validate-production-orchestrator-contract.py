@@ -27,6 +27,7 @@ RELEASE_VALIDATOR_NON_SELF_REFERENTIAL_BINDINGS = frozenset(
     {
         "SHARED_PRODUCTION_VALIDATOR_SHA256",
         "APPLICATION_PRODUCTION_VALIDATOR_SHA256",
+        "BACKEND2_PRODUCTION_VALIDATOR_SHA256",
         "KEYCLOAK_PRODUCTION_VALIDATOR_SHA256",
         "MIDDLEWARE_PRODUCTION_VALIDATOR_SHA256",
         "BACKEND_PRODUCTION_VALIDATOR_SHA256",
@@ -56,7 +57,7 @@ EXPECTED_RELEASE_VALIDATOR_SECURITY_SHA256 = {
     "appolon1908-hue/Middleware-": MIDDLEWARE_RELEASE_VALIDATOR_SECURITY_SHA256,
     "appolon1908/codestra": APPLICATION_RELEASE_VALIDATOR_SECURITY_SHA256,
     "appolon1908-hue/beyvra-backend": BACKEND_RELEASE_VALIDATOR_SECURITY_SHA256,
-    "appolon1908/backend2": APPLICATION_RELEASE_VALIDATOR_SECURITY_SHA256,
+    "appolon1908/backend2": "2a65e0da920dbb99446c3a8fccb65901d3aef7b12b05d21e9e03bfe6f3089603",
     "appolon1908-hue/beyvra-frontend": STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256,
     "appolon1908-hue/scrapper": STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256,
     "appolon1908-hue/Breero.com": STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256,
@@ -736,6 +737,10 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
     },
 }
 APPROVED_JOB_EXECUTABLE_CONFIGURATION_SHA256: dict[str, dict[str, str]] = {
+    # Repository-local, synthetic PostgreSQL fixture; any byte drift is denied.
+    "appolon1908/backend2": {
+        ".github/workflows/backend-postgres.yml": "d3fd12804698bd82094070f37bbab3f5e47e10bb09eaa850dc6bf8fd02a58121",
+    },
     "appolon1908-hue/Middleware-": {
         ".github/workflows/connector-runtime-api-ci.yml": "917ab06febf30f0d81146fc147794dace9510f7bb0a6fb903dd69b2244d4e1d0",
         ".github/workflows/connector-storage-ci.yml": "eada698e8756b76431a43f8d54d1aa192b9d964bca9a5e76d90476f35135bc7a",

@@ -11,7 +11,7 @@
   "sole_writer": "ChatGPT user-directed PR23 repair",
   "authority": "User: fix backend",
   "active_linear_issue": "NONE",
-  "status": "REPAIR_CANDIDATE_AWAITING_RUNTIME_CI",
+  "status": "FINAL_SOURCE_VERIFICATION_PENDING",
   "production_effects": false,
   "runtime_deployed": false,
   "independent_review": "PENDING",
@@ -40,5 +40,18 @@
   },
   "django_red_attempt": "Initial Docker startup timed out; no runtime result claimed until log is available",
   "runtime_regression_tests_added": 11,
-  "verification_note": "Original exact-head local Docker launch timed out under desktop I/O pressure. New isolated PostgreSQL GitHub regression workflow added; no success claimed before its result. Required existing checks unchanged."
+  "verification_note": "Original exact-head local Docker launch timed out under desktop I/O pressure. New isolated PostgreSQL GitHub regression workflow added; no success claimed before its result. Required existing checks unchanged.",
+  "postgres_fixture_policy": {
+    "workflow_sha256": "d3fd12804698bd82094070f37bbab3f5e47e10bb09eaa850dc6bf8fd02a58121",
+    "scope": "one exact backend workflow; default denial and negative regressions retained",
+    "independent_review": "PENDING",
+    "backend_source_binding_separated_from_frontend": true
+  },
+  "previous_remote_verification": {
+    "head": "173b5897211cdb67a673bf97341ffa234af99935",
+    "ci": "PASS",
+    "postgres": "PASS",
+    "hierarchy": "PASS",
+    "orchestrator": "FAIL: unregistered service fixture"
+  }
 }

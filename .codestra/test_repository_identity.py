@@ -81,5 +81,54 @@ class RepositoryIdentityTests(unittest.TestCase):
         self.reject(contract, "artifact image policy contradicts")
 
 
+class BackendPostgresFixtureTests(unittest.TestCase):
+    """Only the exact, isolated CI service fixture receives a configuration pin."""
+    path = ".github/workflows/backend-postgres.yml"
+
+    def setUp(self):
+        self.workflow = (ROOT / self.path).read_text(encoding="utf-8")
+        self.environment = patch.dict(os.environ, {"GITHUB_REPOSITORY": "appolon1908/backend2"})
+        self.environment.start()
+        self.addCleanup(self.environment.stop)
+
+    def test_exact_fixture_is_bound_and_has_no_runtime_commands(self):
+        self.assertTrue(VALIDATOR["job_executable_configuration_approved"](self.workflow, self.path))
+        self.assertFalse(VALIDATOR["workflow_has_runtime_mutation"](self.workflow, self.path))
+
+    def test_any_fixture_byte_change_loses_the_configuration_pin(self):
+        self.assertFalse(VALIDATOR["job_executable_configuration_approved"](self.workflow + "\n# drift\n", self.path))
+        self.assertTrue(VALIDATOR["workflow_has_runtime_mutation"](self.workflow + "\n# drift\n", self.path))
+
+    def test_image_change_is_rejected(self):
+        changed = self.workflow.replace("image: postgres:16-alpine", "image: unreviewed.example/postgres:latest")
+        self.assertNotEqual(changed, self.workflow)
+        self.assertTrue(VALIDATOR["workflow_has_runtime_mutation"](changed, self.path))
+
+    def test_runner_authority_change_is_rejected(self):
+        changed = self.workflow.replace("runs-on: ubuntu-24.04", "runs-on: self-hosted")
+        self.assertTrue(VALIDATOR["workflow_has_runtime_mutation"](changed, self.path))
+
+    def test_configuration_pin_does_not_transfer_to_another_repository(self):
+        with patch.dict(os.environ, {"GITHUB_REPOSITORY": "appolon1908/codestra"}):
+            self.assertFalse(VALIDATOR["job_executable_configuration_approved"](self.workflow, self.path))
+            self.assertTrue(VALIDATOR["workflow_has_runtime_mutation"](self.workflow, self.path))
+
+    def test_configuration_pin_does_not_transfer_to_another_path(self):
+        self.assertFalse(VALIDATOR["job_executable_configuration_approved"](self.workflow, ".github/workflows/unreviewed.yml"))
+        self.assertTrue(VALIDATOR["workflow_has_runtime_mutation"](self.workflow, ".github/workflows/unreviewed.yml"))
+
+    def test_fixture_is_hosted_read_only_synthetic_and_not_activated(self):
+        parsed = VALIDATOR["yaml"].safe_load(self.workflow)
+        self.assertEqual(parsed["permissions"], {"contents": "read"})
+        job = parsed["jobs"]["postgres-regression"]
+        self.assertEqual(job["runs-on"], "ubuntu-24.04")
+        self.assertEqual(job["env"]["DJANGO_SETTINGS_MODULE"], "CORE.leadconnector_pg_test_settings")
+        self.assertEqual(job["env"]["LEADCONNECTOR_ENABLED"], "false")
+        self.assertEqual(job["env"]["LC_PG_HOST"], "localhost")
+        self.assertNotIn("environment", job)
+        self.assertNotIn("secrets.", self.workflow)
+        self.assertNotIn("volumes", job["services"]["postgres"])
+
+
 if __name__ == "__main__":
     unittest.main()
