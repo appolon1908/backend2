@@ -8,6 +8,7 @@ from .views import (
         TestimonialViewSet
         )
 
+from .odoo_dashboard import OdooCRMReadViewSet
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
@@ -22,6 +23,7 @@ router.register(r'logo', LogoViewSet, basename='logo')
 router.register(r'tax-payer', TaxPayerViewSet, basename='tax-payer')
 
 router.register(r'testimonial', TestimonialViewSet, basename='testimonial')
+router.register(r'odoo-crm', OdooCRMReadViewSet, basename='odoo-crm')
 
 urlpatterns = [
     path('', include(router.urls)),

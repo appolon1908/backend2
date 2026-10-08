@@ -65,3 +65,77 @@ class PublicLeadEndpointsTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(TaxPayer.objects.get().odoo_sync_status, "pending")
+
+
+class OdooDashboardReadProxyTests(APITestCase):
+    """No public CRM data, no arbitrary upstream proxy and clear outages."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        cls.staff = User.objects.create_user(
+            email="crm-staff@example.test", password="test-pass-123",
+            is_staff=True,
+        )
+        cls.ordinary = User.objects.create_user(
+            email="crm-user@example.test", password="test-pass-123",
+            is_staff=False,
+        )
+
+    def test_unauthenticated_and_ordinary_users_cannot_read_crm(self):
+        for url in (
+            "/api/cms/odoo-crm/overview/",
+            "/api/cms/odoo-crm/campaigns/",
+            "/api/cms/odoo-crm/leads/",
+        ):
+            self.assertIn(self.client.get(url).status_code, (401, 403))
+            self.client.force_authenticate(user=self.ordinary)
+            self.assertEqual(self.client.get(url).status_code, 403)
+            self.client.force_authenticate(user=None)
+
+    @override_settings(ODOO_API_TOKEN="", ODOO_BASE_URL="https://crm.example.test")
+    def test_no_key_returns_explicit_unavailable_not_sample_data(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get("/api/cms/odoo-crm/overview/")
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.data["error"], "odoo_not_configured")
+
+    @override_settings(ODOO_API_TOKEN="test-odoo-api-key", ODOO_BASE_URL="https://crm.example.test")
+    @patch("cms.odoo_dashboard.requests.get")
+    def test_authenticated_staff_proxy_passes_bearer_and_query_bounds(self, get):
+        get.return_value = Mock(
+            status_code=200,
+            headers={"Content-Type": "application/json"},
+            json=Mock(return_value={
+                "schema_version": 1, "total": 1, "page": 1, "limit": 10,
+                "campaigns": [{"id": 5, "code": "CAMP-A", "name": "Campaign A"}],
+            }),
+        )
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get("/api/cms/odoo-crm/campaigns/?page=1&limit=10")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["total"], 1)
+        self.assertIn("no-store", response["Cache-Control"])
+        _, kwargs = get.call_args
+        self.assertEqual(kwargs["headers"]["Authorization"], "Bearer test-odoo-api-key")
+        self.assertEqual(kwargs["timeout"], (3, 10))
+        self.assertFalse(kwargs["allow_redirects"])
+        self.assertEqual(kwargs["params"], {"page": 1, "limit": 10})
+
+    @override_settings(ODOO_API_TOKEN="test-odoo-api-key", ODOO_BASE_URL="https://crm.example.test")
+    @patch("cms.odoo_dashboard.requests.get")
+    def test_untrusted_params_or_bad_upstream_cannot_leak_crm(self, get):
+        self.client.force_authenticate(user=self.staff)
+        self.assertEqual(self.client.get(
+            "/api/cms/odoo-crm/leads/?limit=1000"
+        ).status_code, 400)
+        get.assert_not_called()
+        get.return_value = Mock(
+            status_code=200,
+            headers={"Content-Type": "text/html"},
+            json=Mock(return_value={"schema_version": 1}),
+        )
+        response = self.client.get("/api/cms/odoo-crm/overview/")
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.data["error"], "odoo_invalid_response")
