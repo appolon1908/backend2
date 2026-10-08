@@ -1,0 +1,29 @@
+{
+  "status": "READY_FOR_REVIEW",
+  "repository": "appolon1908/backend2",
+  "branch": "mission/gh18-private-records",
+  "base_sha": "8f16528585b40c45b19ecfddef9d9b629728a9d7",
+  "pr_base": "fix/codestra-review-3-4",
+  "issue": "https://github.com/appolon1908/backend2/issues/18",
+  "active_linear_issue": "NONE",
+  "linear_blocker": "Free workspace quota; user authorized GH18 defines assigned scope",
+  "notion": "https://app.notion.com/p/3ed7518c3e06811b873ee06f2c109f54",
+  "sole_writer": "/root/backend_access",
+  "role": "Builder",
+  "worktree": "/srv/codestra/verification/gh18-private-records",
+  "worker_node": "host_257168363c013ac4",
+  "temporary_worker_reason": "Dev desktop offline during source transfer; original /srv/codestra/prs/backend2/gh18-private-records frozen and preserved, no second writer. Root approved temporary recovery. Primary development role remains dev desktop.",
+  "production_effects": false,
+  "tests": {
+    "baseline": "18 passed",
+    "red": "24 tests reproduced 43 failures and 4 errors; inactive login and recovery/calendar tests also failed before their fixes",
+    "full_suite": "46 passed",
+    "migration_check": "PASS no changes detected",
+    "production_wsgi": "PASS CORE.settings WSGIHandler",
+    "direct_odoo_write_guard": "PASS"
+  },
+  "timestamp": "2026-10-07T15:06:59.292117+00:00",
+  "review": "Independent review pending exact commit",
+  "runtime": "NOT_DEPLOYED",
+  "ci": "PENDING"
+}
