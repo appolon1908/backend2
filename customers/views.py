@@ -14,14 +14,14 @@ from calendar_app.serializers import EventSerializer
 from drf_yasg.utils import swagger_auto_schema
 
 from notification.service import EmailService
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAdminUser
 
 
 
 
 class CustomerViewSet(ViewSet):
     serializer_class = CustomerSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
     
     @swagger_auto_schema(
         operation_description="List all customers",
