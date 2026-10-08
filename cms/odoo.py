@@ -1,74 +1,81 @@
 import logging
 
-import requests
-from django.conf import settings
-from django.utils import timezone
 
+from helpers.middleware_client import (
+    MiddlewareConfigurationError,
+    MiddlewareRequestError,
+    accepted_operation_id,
+    submit_contact,
+    submit_opportunity,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def _record_id(response_data):
-    if not isinstance(response_data, dict):
-        return ""
-    value = response_data.get("id") or response_data.get("lead_id") or response_data.get("result", {}).get("id")
-    return str(value or "")[:128]
-
-
-def send_to_odoo(instance, endpoint, payload):
-    """Attempt delivery once while keeping the locally saved submission authoritative."""
-    if not settings.ODOO_API_TOKEN or not settings.ODOO_BASE_URL:
+def _deliver(instance, sender, payload, *, idempotency_key):
+    try:
+        response_data = sender(payload, idempotency_key=idempotency_key)
+        operation_id = accepted_operation_id(response_data)
+        instance.odoo_sync_status = "submitted"
+        instance.odoo_record_id = operation_id
+        instance.odoo_last_error = ""
+        instance.odoo_synced_at = None
+        instance.save(
+            update_fields=[
+                "odoo_sync_status",
+                "odoo_record_id",
+                "odoo_last_error",
+                "odoo_synced_at",
+            ]
+        )
+        return True
+    except MiddlewareConfigurationError:
         instance.odoo_sync_status = "pending"
-        instance.odoo_last_error = "Odoo integration is not configured"
+        instance.odoo_last_error = "Middleware integration is not configured"
         instance.save(update_fields=["odoo_sync_status", "odoo_last_error"])
         return False
-
-    try:
-        response = requests.post(
-            f"{settings.ODOO_BASE_URL}/{endpoint.lstrip('/')}",
-            headers={"Authorization": f"Bearer {settings.ODOO_API_TOKEN}"},
-            json=payload,
-            timeout=10,
-        )
-        response.raise_for_status()
-        try:
-            response_data = response.json()
-        except ValueError:
-            response_data = {}
-        instance.odoo_sync_status = "synced"
-        instance.odoo_record_id = _record_id(response_data)
-        instance.odoo_last_error = ""
-        instance.odoo_synced_at = timezone.now()
-        instance.save(update_fields=["odoo_sync_status", "odoo_record_id", "odoo_last_error", "odoo_synced_at"])
-        return True
-    except requests.RequestException as exc:
+    except MiddlewareRequestError:
         instance.odoo_sync_status = "failed"
-        instance.odoo_last_error = str(exc)[:1000]
+        instance.odoo_last_error = "Middleware delivery failed"
         instance.save(update_fields=["odoo_sync_status", "odoo_last_error"])
-        logger.warning("Odoo delivery failed for %s %s", instance._meta.label, instance.pk)
+        logger.warning(
+            "Middleware delivery failed for %s %s",
+            instance._meta.label,
+            instance.pk,
+        )
         return False
 
 
 def sync_contact(contact):
-    return send_to_odoo(contact, "crm/lead/create", {
-        "full_name": contact.full_name,
-        "email": contact.email,
-        "company_size": contact.company_size,
-        "message": contact.message,
-        "source": "codestra-contact-sales",
-    })
+    return _deliver(
+        contact,
+        submit_opportunity,
+        {
+            "full_name": contact.full_name,
+            "email": contact.email,
+            "company_size": contact.company_size,
+            "message": contact.message,
+            "source": "codestra-contact-sales",
+        },
+        idempotency_key=f"codestra-contact-{contact.pk}",
+    )
 
 
 def sync_billing_interest(interest):
-    return send_to_odoo(interest, "crm/lead/create", {
-        "full_name": interest.full_name,
-        "email": interest.email,
-        "phone": interest.phone,
-        "uses_erp": interest.uses_erp,
-        "consent_to_contact": interest.consent_to_contact,
-        "source": interest.source,
-        "message": "Electronic billing consultation",
-    })
+    return _deliver(
+        interest,
+        submit_opportunity,
+        {
+            "full_name": interest.full_name,
+            "email": interest.email,
+            "phone": interest.phone,
+            "uses_erp": interest.uses_erp,
+            "consent_to_contact": interest.consent_to_contact,
+            "source": interest.source,
+            "message": "Electronic billing consultation",
+        },
+        idempotency_key=f"codestra-billing-interest-{interest.pk}",
+    )
 
 
 def sync_taxpayer(taxpayer):
@@ -98,4 +105,9 @@ def sync_taxpayer(taxpayer):
         "warehouse_sector": taxpayer.warehouse_sector,
         "source": "codestra-taxpayer-registration",
     }
-    return send_to_odoo(taxpayer, "contribuyente/register", payload)
+    return _deliver(
+        taxpayer,
+        submit_contact,
+        payload,
+        idempotency_key=f"codestra-taxpayer-{taxpayer.pk}",
+    )

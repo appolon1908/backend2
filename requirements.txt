@@ -19,3 +19,4 @@ qrcode==8.2
 requests==2.33.0
 stripe==11.4.1
 whitenoise==6.11.0
+cryptography==50.0.2

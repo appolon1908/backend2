@@ -16,6 +16,7 @@ from drf_yasg.utils import swagger_auto_schema
 
 from .models import Employee, SocialMedia
 import requests
+from helpers.middleware_client import MiddlewareConfigurationError, MiddlewareRequestError, submit_contact_task
 
 from calendar_app.models import Event
 from calendar_app.serializers import EventSerializer
@@ -33,6 +34,35 @@ from cms.serializers import HeaderTitleSerializer
 
 
 
+PUBLIC_EMPLOYEE_FIELDS = {
+    "id", "first_name", "last_name", "name", "role", "team",
+    "country", "profile_picture", "image", "qr_code",
+}
+
+
+def public_directory_data(data):
+    """Allow only published directory fields, including untrusted provider data."""
+    if isinstance(data, list):
+        return [public_directory_data(item) for item in data if isinstance(item, dict)]
+    if not isinstance(data, dict):
+        return {}
+    if any(key in data for key in ("employees", "data", "results")):
+        return {
+            key: public_directory_data(data[key])
+            for key in ("employees", "data", "results") if key in data
+        }
+    result = {
+        key: value for key, value in data.items()
+        if key in PUBLIC_EMPLOYEE_FIELDS and isinstance(value, (str, int, type(None)))
+    }
+    if isinstance(data.get("socials"), list):
+        result["socials"] = [
+            {key: item[key] for key in ("name", "link") if isinstance(item.get(key), str)}
+            for item in data["socials"] if isinstance(item, dict)
+        ]
+    return result
+
+
 class EmployeeViewset(viewsets.ViewSet):
     serializer_class = EmployeeSerializer
     pagination_class = LimitOffsetPagination
@@ -40,6 +70,11 @@ class EmployeeViewset(viewsets.ViewSet):
     def get_permissions(self):
         return [AllowAny()] if self.action in {'list', 'retrieve'} else [IsAdminUser()]
     
+    def directory_response(self, request, data):
+        if request.user.is_authenticated and request.user.is_staff:
+            return Response(data, status=status.HTTP_200_OK)
+        return Response(public_directory_data(data), status=status.HTTP_200_OK)
+
     def get_queryset(self):
         return Employee.objects.filter(is_active=True).order_by('-date_joined')
     
@@ -115,28 +150,17 @@ class EmployeeViewset(viewsets.ViewSet):
 
    
     def send_add_calendar_event_to_odoo(self, event_data):
-        odoo_url = f"{settings.ODOO_BASE_URL}/api/website/add-activity"
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {settings.ODOO_API_TOKEN}'
-        }
-
-        try:
-           
-            response = requests.post(odoo_url, headers=headers, json=event_data, timeout=10)
-
-          
-            if response.status_code == 200:
-                return response.json()
-            else:
-               
-                print(f"Error adding event to Odoo: {response.status_code} - {response.text}")
-                return response.json()  
-        except requests.exceptions.RequestException as e:
-          
-            print(f"Error connecting to Odoo: {e}")
+        contact_id = event_data.get("customer_id")
+        if not contact_id:
             return None
-        
+        try:
+            return submit_contact_task(
+                contact_id,
+                event_data,
+                idempotency_key=f"codestra-calendar-{contact_id}-{event_data.get('start_date', '')}",
+            )
+        except (MiddlewareConfigurationError, MiddlewareRequestError):
+            return None
     
     @swagger_auto_schema(
         operation_description="List all employees",
@@ -159,10 +183,10 @@ class EmployeeViewset(viewsets.ViewSet):
 
         if not odoo_response or (isinstance(odoo_response, dict) and "error" in odoo_response):
             employees = self.get_queryset()
-            return Response(EmployeeSerializer(employees, many=True).data, status=status.HTTP_200_OK)
+            return self.directory_response(request, EmployeeSerializer(employees, many=True).data)
     
     # If everything is fine, return the data obtained
-        return Response(odoo_response, status=status.HTTP_200_OK)
+        return self.directory_response(request, odoo_response)
     
     
     @swagger_auto_schema(
@@ -181,11 +205,11 @@ class EmployeeViewset(viewsets.ViewSet):
         odoo_response = self.send_get_employee_by_id_to_odoo(pk)
 
         if odoo_response:
-            return Response(odoo_response, status=status.HTTP_200_OK)
-        employee = Employee.objects.prefetch_related('social_media_profiles').filter(id=pk).first()
+            return self.directory_response(request, odoo_response)
+        employee = Employee.objects.prefetch_related('social_media_profiles').filter(id=pk, is_active=True).first()
         if not employee:
             return Response({"error": "Employee not found."}, status=status.HTTP_404_NOT_FOUND)
-        return Response(EmployeeSerializer(employee).data, status=status.HTTP_200_OK)
+        return self.directory_response(request, EmployeeSerializer(employee).data)
     
     @swagger_auto_schema(
         operation_description="Create an employee record form",
