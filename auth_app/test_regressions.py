@@ -147,6 +147,15 @@ class UnavailableCalendarTests(APITestCase):
             with self.subTest(url=url):
                 self.assertEqual(self.client.get(url).status_code, 503)
 
+class PublicSessionIntrospectionTests(APITestCase):
+    def test_anonymous_session_probe_is_clean_and_non_mutating(self):
+        response = self.client.get("/api/auth/session/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"user": None})
+        self.assertNotIn("codestra_access", response.cookies)
+        self.assertNotIn("codestra_refresh", response.cookies)
+
+
 class LogoutExpiryTests(APITestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(email="logout-expiry@example.invalid", password="StrongPass123!")
@@ -170,7 +179,9 @@ class LogoutExpiryTests(APITestCase):
         self.browser.cookies["codestra_refresh"] = self.refresh
         response = self.browser.post("/api/auth/refresh-session/", {}, format="json", HTTP_X_CSRFTOKEN=self.csrf)
         self.assertEqual(response.status_code, 401)
-        self.assertEqual(self.browser.get("/api/auth/session/").status_code, 401)
+        session = self.browser.get("/api/auth/session/")
+        self.assertEqual(session.status_code, 200)
+        self.assertIsNone(session.json()["user"])
 
     def test_logout_is_idempotent_without_access_or_valid_refresh(self):
         del self.browser.cookies["codestra_access"]

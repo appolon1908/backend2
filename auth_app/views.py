@@ -171,9 +171,12 @@ class AuthViewSet(ViewSet):
         detail=False,
         methods=["GET"],
         url_path="session",
-        permission_classes=[IsAuthenticated],
+        permission_classes=[AllowAny],
     )
     def session(self, request):
+        """Return the current browser session without treating anonymous users as errors."""
+        if not request.user or not request.user.is_authenticated:
+            return Response({"user": None}, status=status.HTTP_200_OK)
         return Response(
             {"user": GetUserSerializer(instance=request.user).data},
             status=status.HTTP_200_OK,
