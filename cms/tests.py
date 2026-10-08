@@ -22,7 +22,11 @@ class PublicLeadEndpointsTests(APITestCase):
         contact = ContactUs.objects.get()
         self.assertEqual(contact.odoo_sync_status, "pending")
 
-    @override_settings(ODOO_API_TOKEN="odoo-test-token", ODOO_BASE_URL="https://odoo.example")
+    @override_settings(
+        ODOO_LEAD_SYNC_ENABLED=True,
+        ODOO_LEAD_SYNC_TOKEN="write-only-test-token",
+        ODOO_LEAD_SYNC_BASE_URL="https://odoo.example",
+    )
     @patch("cms.odoo.requests.post")
     def test_billing_interest_is_sent_to_odoo(self, post):
         post.return_value = Mock(
@@ -42,6 +46,7 @@ class PublicLeadEndpointsTests(APITestCase):
         self.assertEqual(interest.odoo_sync_status, "synced")
         self.assertEqual(interest.odoo_record_id, "42")
         self.assertEqual(post.call_args.kwargs["timeout"], 10)
+        self.assertEqual(post.call_args.kwargs["headers"]["Authorization"], "Bearer write-only-test-token")
 
     def test_billing_interest_requires_contact_consent(self):
         response = self.client.post("/api/cms/electronic-billing-interest/", {
@@ -162,3 +167,42 @@ class OdooDashboardReadProxyTests(APITestCase):
         response=self.client.get("/api/cms/odoo-crm/campaigns/")
         self.assertEqual(response.status_code,503)
         self.assertEqual(response.data["error"],"odoo_service_role_mismatch")
+
+
+    @override_settings(
+        ODOO_API_TOKEN="readonly-dashboard-token",
+        ODOO_BASE_URL="https://crm.example",
+        ODOO_LEAD_SYNC_ENABLED=False,
+        ODOO_LEAD_SYNC_TOKEN="",
+    )
+    @patch("cms.odoo.requests.post")
+    def test_readonly_crm_api_key_never_activates_public_lead_delivery(self, post):
+        response = self.client.post("/api/cms/electronic-billing-interest/", {
+            "full_name": "No external effects",
+            "email": "disabled@example.invalid",
+            "phone": "+1 555 0110",
+            "uses_erp": True,
+            "consent_to_contact": True,
+        }, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        interest = ElectronicBillingInterest.objects.get()
+        self.assertEqual(interest.odoo_sync_status, "pending")
+        post.assert_not_called()
+
+    @override_settings(
+        ODOO_LEAD_SYNC_ENABLED=True,
+        ODOO_LEAD_SYNC_TOKEN="write-only-test-token",
+        ODOO_LEAD_SYNC_BASE_URL="http://odoo.example",
+    )
+    @patch("cms.odoo.requests.post")
+    def test_effectful_lead_delivery_refuses_plain_http(self, post):
+        response = self.client.post("/api/cms/electronic-billing-interest/", {
+            "full_name": "Blocked insecure transport",
+            "email": "insecure@example.invalid",
+            "phone": "+1 555 0111",
+            "uses_erp": True,
+            "consent_to_contact": True,
+        }, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(ElectronicBillingInterest.objects.get().odoo_sync_status, "pending")
+        post.assert_not_called()

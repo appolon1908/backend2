@@ -274,6 +274,11 @@ STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
 
 ODOO_BASE_URL = config("ODOO_BASE_URL", default="https://crm.codestra.co").rstrip("/")
 ODOO_API_TOKEN = config("ODOO_API_TOKEN", default="")
+# Public website lead intake is a separate, effect-capable connector.
+# Default denied until Middleware/Odoo20 contract and production approval.
+ODOO_LEAD_SYNC_ENABLED = config("ODOO_LEAD_SYNC_ENABLED", cast=bool, default=False)
+ODOO_LEAD_SYNC_BASE_URL = config("ODOO_LEAD_SYNC_BASE_URL", default="")
+ODOO_LEAD_SYNC_TOKEN = config("ODOO_LEAD_SYNC_TOKEN", default="")
 
 CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://redis:6379/1")
 CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND", default="redis://redis:6379/2")
