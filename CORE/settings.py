@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     'customers',
     'career_app',
     'payment_app',
+    'leadconnector',
 ]
 
 APPEND_SLASH = False
@@ -306,3 +307,8 @@ CSRF_COOKIE_SECURE = not DEBUG
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
+
+# Local receipt intake only. Provider setup and signed-delivery proof are separate.
+LEADCONNECTOR_ENABLED = config("LEADCONNECTOR_ENABLED", default=False, cast=bool)
+LEADCONNECTOR_LOCATION_ID = "jpzEheys0lV7R6jsD8W9"
+LEADCONNECTOR_WIDGET_ID = "6ac7add4b17ff091c6b9a42c"
