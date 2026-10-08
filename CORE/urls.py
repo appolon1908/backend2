@@ -17,6 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+from CORE.private_media import PrivateDocumentView
 
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
@@ -47,6 +48,8 @@ sitemaps = {
 
 
 urlpatterns = [
+    path('media/tax/images/<path:filename>', PrivateDocumentView.as_view(), {'category': 'tax'}, name='private-tax-document'),
+    path('media/career/<path:filename>', PrivateDocumentView.as_view(), {'category': 'career'}, name='private-career-document'),
     path('healthz/', lambda request: JsonResponse({'status': 'ok'}), name='healthz'),
     path('admin/', admin.site.urls),
     path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0), name='api-docs'),
