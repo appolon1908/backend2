@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import json
 import os
 from pathlib import Path
 from decouple import config
@@ -64,6 +65,7 @@ INSTALLED_APPS = [
     'customers',
     'career_app',
     'payment_app',
+    'leadconnector',
 ]
 
 APPEND_SLASH = False
@@ -220,7 +222,7 @@ CKEDITOR_ALLOW_NONIMAGE_FILES = True
 REST_FRAMEWORK = {
 
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'CORE.authentication.CookieJWTAuthentication',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     "PAGE_SIZE": 10,
@@ -264,6 +266,16 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(days=1),
 }
 
+AUTH_ACCESS_COOKIE = config("AUTH_ACCESS_COOKIE", default="codestra_access")
+AUTH_REFRESH_COOKIE = config("AUTH_REFRESH_COOKIE", default="codestra_refresh")
+AUTH_COOKIE_SECURE = config("AUTH_COOKIE_SECURE", cast=bool, default=not DEBUG)
+AUTH_COOKIE_SAMESITE = "Strict"
+AUTH_ACCESS_COOKIE_MAX_AGE = int(SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds())
+AUTH_REFRESH_COOKIE_MAX_AGE = int(SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds())
+CSRF_COOKIE_SAMESITE = "Strict"
+CSRF_COOKIE_HTTPONLY = False
+CORS_ALLOW_CREDENTIALS = True
+
 BASE_URL=config("BASE_URL", default="http://localhost:8000")
 
 ADMIN_EMAIL = config("ADMIN_EMAIL", default="support@codestra.co")
@@ -272,6 +284,17 @@ STRIP_SECRET_KEY = config("STRIP_SECRET_KEY", default="")
 STRIP_PUBLISHABLE_KEY = config("STRIP_PUBLISHABLE_KEY", default="")
 STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
 
+try:
+    PAYMENT_PRICE_CATALOG = json.loads(config("PAYMENT_PRICE_CATALOG", default="{}"))
+except json.JSONDecodeError as exc:
+    raise RuntimeError("PAYMENT_PRICE_CATALOG must be valid JSON") from exc
+
+MIDDLEWARE_BASE_URL = config("MIDDLEWARE_BASE_URL", default="http://middleware:8095").rstrip("/")
+MIDDLEWARE_ACCESS_TOKEN = config("MIDDLEWARE_ACCESS_TOKEN", default="")
+MIDDLEWARE_TENANT_ID = config("MIDDLEWARE_TENANT_ID", default="codestra")
+
+# Read-only legacy Odoo access remains temporarily for employee/calendar reads.
+# All effect-capable writes must go through Middleware.
 ODOO_BASE_URL = config("ODOO_BASE_URL", default="https://crm.codestra.co").rstrip("/")
 ODOO_API_TOKEN = config("ODOO_API_TOKEN", default="")
 
@@ -284,3 +307,8 @@ CSRF_COOKIE_SECURE = not DEBUG
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
+
+# Local receipt intake only. Provider setup and signed-delivery proof are separate.
+LEADCONNECTOR_ENABLED = config("LEADCONNECTOR_ENABLED", default=False, cast=bool)
+LEADCONNECTOR_LOCATION_ID = "jpzEheys0lV7R6jsD8W9"
+LEADCONNECTOR_WIDGET_ID = "6ac7add4b17ff091c6b9a42c"
