@@ -82,6 +82,13 @@ class OdooDashboardReadProxyTests(APITestCase):
             email="crm-user@example.test", password="test-pass-123",
             is_staff=False,
         )
+        cls.unbound_staff = User.objects.create_user(
+            email="crm-unbound-staff@example.test", password="test-pass-123",
+            is_staff=True,
+        )
+        from django.contrib.auth.models import Group
+        crm_group, _ = Group.objects.get_or_create(name="Codestra Call Center Super User")
+        cls.staff.groups.add(crm_group)
 
     def test_unauthenticated_and_ordinary_users_cannot_read_crm(self):
         for url in (
@@ -91,6 +98,8 @@ class OdooDashboardReadProxyTests(APITestCase):
         ):
             self.assertIn(self.client.get(url).status_code, (401, 403))
             self.client.force_authenticate(user=self.ordinary)
+            self.assertEqual(self.client.get(url).status_code, 403)
+            self.client.force_authenticate(user=self.unbound_staff)
             self.assertEqual(self.client.get(url).status_code, 403)
             self.client.force_authenticate(user=None)
 
@@ -108,7 +117,8 @@ class OdooDashboardReadProxyTests(APITestCase):
             status_code=200,
             headers={"Content-Type": "application/json"},
             json=Mock(return_value={
-                "schema_version": 1, "total": 1, "page": 1, "limit": 10,
+                "schema_version": 1, "role": "superuser",
+                "total": 1, "page": 1, "limit": 10,
                 "campaigns": [{"id": 5, "code": "CAMP-A", "name": "Campaign A"}],
             }),
         )
@@ -139,3 +149,16 @@ class OdooDashboardReadProxyTests(APITestCase):
         response = self.client.get("/api/cms/odoo-crm/overview/")
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.data["error"], "odoo_invalid_response")
+
+
+    @override_settings(ODOO_API_TOKEN="restricted-example-key", ODOO_BASE_URL="https://crm.example.test")
+    @patch("cms.odoo_dashboard.requests.get")
+    def test_incorrect_odoo_account_role_fails_closed(self, get):
+        get.return_value = Mock(
+            status_code=200, headers={"Content-Type":"application/json"},
+            json=Mock(return_value={"schema_version":1,"role":"agent","campaigns":[]}),
+        )
+        self.client.force_authenticate(user=self.staff)
+        response=self.client.get("/api/cms/odoo-crm/campaigns/")
+        self.assertEqual(response.status_code,503)
+        self.assertEqual(response.data["error"],"odoo_service_role_mismatch")

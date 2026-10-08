@@ -10,7 +10,24 @@ import requests
 from django.conf import settings
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import BasePermission
+
+CRM_ADMIN_GROUP = "Codestra Call Center Super User"
+
+
+class CanViewCodestraCRM(BasePermission):
+    """A Codestra staff login alone is not sufficient to view CRM records."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(
+            user and user.is_authenticated and user.is_staff
+            and (
+                user.is_superuser
+                or user.groups.filter(name=CRM_ADMIN_GROUP).exists()
+            )
+        )
+
 from rest_framework.response import Response
 
 
@@ -65,13 +82,24 @@ def _fetch_odoo(resource, params):
         result = None
     if not isinstance(result, dict) or result.get("schema_version") != 1:
         return {"error": "odoo_contract_mismatch", "message": "CRM service returned an unsupported response."}, 502
+    if result.get("role") != "superuser":
+        return {
+            "error": "odoo_service_role_mismatch",
+            "message": "The configured Odoo account is not a Call Center Super User.",
+        }, 503
+    expected_collection = {"campaigns": "campaigns", "leads": "leads"}.get(resource)
+    if expected_collection and not isinstance(result.get(expected_collection), list):
+        return {
+            "error": "odoo_contract_mismatch",
+            "message": "CRM service returned invalid resource data.",
+        }, 502
     return result, 200
 
 
 class OdooCRMReadViewSet(viewsets.ViewSet):
     """Staff-only data, then Odoo's own record rules on the API-key user."""
 
-    permission_classes = (IsAdminUser,)
+    permission_classes = (CanViewCodestraCRM,)
     http_method_names = ("get", "head", "options")
 
     def _read(self, request, resource):
