@@ -23,7 +23,7 @@ from .serializers import (
             )
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAdminUser
 from drf_yasg.utils import swagger_auto_schema
 from django.db import transaction
 
@@ -212,10 +212,10 @@ class FAQsViewSet(ViewSet):
 
 class ContactUsViewSet(ViewSet):
     def get_permissions(self):
-        return [AllowAny()] if self.action == 'create' else super().get_permissions()
+        return [AllowAny()] if self.action == 'create' else [IsAdminUser()]
     
-    def get_queryset(self):
-        return super().get_queryset()
+    def list(self, request):
+        return Response(ContactUsSerializer(ContactUs.objects.all(), many=True).data)
     
     @swagger_auto_schema(
         operation_description="Contact Us form",
@@ -247,7 +247,8 @@ class ContactUsViewSet(ViewSet):
 
 
 class ElectronicBillingInterestViewSet(ViewSet):
-    permission_classes = [AllowAny]
+    def get_permissions(self):
+        return [AllowAny()] if self.action == "create" else [IsAdminUser()]
 
     @swagger_auto_schema(
         operation_description="Electronic billing consultation form",
@@ -271,8 +272,8 @@ class ElectronicBillingInterestViewSet(ViewSet):
         tags=["contact-us"],
     )
     def list(self, request):
-        queryset = ContactUs.objects.all()
-        serializer = ContactUsSerializer(queryset, many=True)
+        queryset = ElectronicBillingInterest.objects.all()
+        serializer = ElectronicBillingInterestSerializer(queryset, many=True)
         return Response(serializer.data)
     
     
@@ -350,7 +351,7 @@ class LogoViewSet(ViewSet):
 
 class TaxPayerViewSet(ViewSet):
     def get_permissions(self):
-        return [AllowAny()] if self.action == 'create' else super().get_permissions()
+        return [AllowAny()] if self.action == 'create' else [IsAdminUser()]
 
 
     # Effect-capable CRM writes are submitted through Middleware in cms.odoo.

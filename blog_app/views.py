@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.pagination import LimitOffsetPagination
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAdminUser, AllowAny, IsAuthenticated
 
 
 from .serializers import (
@@ -33,22 +33,12 @@ class BlogViewSet(ViewSet):
     pagination_class = LimitOffsetPagination
     
     def get_permissions(self):
-        """
-        Determine the appropriate permissions for the current action.
+        if self.action in {"list", "retrieve", "get_blog_header_title"}:
+            return [AllowAny()]
+        if self.action in {"like", "add_comment"}:
+            return [IsAuthenticated()]
+        return [IsAdminUser()]
 
-        This method checks the action being performed and assigns the corresponding
-        permission classes. If the action is 'list' or 'retrieve', it allows any user
-        to access the view. For all other actions, it requires the user to be authenticated.
-
-        Returns:
-            list: A list of instantiated permission classes based on the action.
-        """
-        if self.action in ['list', 'retrieve']:
-            permission_classes = [AllowAny]
-        else:
-            permission_classes = [IsAuthenticated]
-        return [permission() for permission in permission_classes]
-    
     def get_object(self, *args, **kwargs):
         """
         Retrieve a published Blog object by its primary key (pk).
