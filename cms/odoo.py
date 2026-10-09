@@ -17,16 +17,26 @@ def _record_id(response_data):
 
 def send_to_odoo(instance, endpoint, payload):
     """Attempt delivery once while keeping the locally saved submission authoritative."""
-    if not settings.ODOO_API_TOKEN or not settings.ODOO_BASE_URL:
+    # The Odoo dashboard token is purpose-scoped to READ-ONLY routes.
+    # Public website submissions must never reuse it for effect-capable POSTs.
+    if not getattr(settings, "ODOO_LEAD_SYNC_ENABLED", False):
         instance.odoo_sync_status = "pending"
-        instance.odoo_last_error = "Odoo integration is not configured"
+        instance.odoo_last_error = "Governed Odoo lead delivery is disabled."
+        instance.save(update_fields=["odoo_sync_status", "odoo_last_error"])
+        return False
+
+    write_token = str(getattr(settings, "ODOO_LEAD_SYNC_TOKEN", "") or "")
+    write_base = str(getattr(settings, "ODOO_LEAD_SYNC_BASE_URL", "") or "").rstrip("/")
+    if not write_token or not write_base or not write_base.startswith("https://"):
+        instance.odoo_sync_status = "pending"
+        instance.odoo_last_error = "Governed Odoo lead delivery requires a separate HTTPS connector."
         instance.save(update_fields=["odoo_sync_status", "odoo_last_error"])
         return False
 
     try:
         response = requests.post(
-            f"{settings.ODOO_BASE_URL}/{endpoint.lstrip('/')}",
-            headers={"Authorization": f"Bearer {settings.ODOO_API_TOKEN}"},
+            f"{write_base}/{endpoint.lstrip('/')}",
+            headers={"Authorization": f"Bearer {write_token}"},
             json=payload,
             timeout=10,
         )

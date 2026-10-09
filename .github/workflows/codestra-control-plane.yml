@@ -1,0 +1,147 @@
+name: Codestra Control Plane
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches: [development, testing, staging, main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-control-plane:
+    name: validate-control-plane
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+      GITHUB_REPOSITORY_ID: ${{ github.repository_id }}
+    steps:
+      - name: Checkout exact source without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Install pinned safe YAML parser
+        run: python3 -m pip install --disable-pip-version-check --no-input PyYAML==6.0.3
+      - name: Validate canonical repository, workstation and effect-deny contract
+        shell: python
+        run: |
+          import json
+          import os
+          from pathlib import Path
+          import yaml
+
+          def require(cond, message):
+              if not cond:
+                  raise SystemExit("CODESTRA_CONTROL_PLANE_FAIL: " + message)
+
+          trusted = {
+              "appolon1908/backend2": (1319903950, "validate", "container"),
+              "appolon1908/codestra": (1319808791, "verify", "container"),
+          }
+          repo = os.environ["GITHUB_REPOSITORY"]
+          require(repo in trusted, "repository outside catalog")
+          expected_id, check1, check2 = trusted[repo]
+          require(os.environ["GITHUB_REPOSITORY_ID"] == str(expected_id),
+                  "immutable GitHub repository ID mismatch")
+          exact_sha = os.environ["EXPECTED_SHA"]
+          require(len(exact_sha) == 40 and all(c in "0123456789abcdef" for c in exact_sha),
+                  "invalid expected commit SHA")
+          require(Path(".git/HEAD").read_text().strip() == exact_sha,
+                  "checkout does not match the exact event head")
+          def require_file(path):
+              file = Path(path)
+              require(file.is_file() and not file.is_symlink(),
+                      "missing/unsafe required file: " + str(path))
+              return file.read_text()
+          profile = yaml.safe_load(require_file(".codestra/repository-profile.yaml"))
+          workspace = yaml.safe_load(require_file(".codestra/workstation-integrations.yaml"))
+          contract = json.loads(require_file(".codestra/production-orchestrator-contract.v1.json"))
+          require(profile.get("schema_version") == 1, "repository profile version")
+          require(profile.get("canonical_owner") == "appolon1908",
+                  "incorrect canonical owner")
+          require(profile.get("repository") == repo
+                  and profile.get("canonical_url") == "https://github.com/" + repo,
+                  "repository identity/URL mismatch")
+          require(profile.get("default_branch_observed") == "main",
+                  "wrong default branch")
+          stages = ["development", "testing", "staging", "production"]
+          lifecycle = profile.get("lifecycle") or {}
+          require(lifecycle.get("promotion_order") == stages,
+                  "governed stage order changed")
+          for name in stages:
+              require(lifecycle.get(name) == name, "promotion target mismatch")
+          require(lifecycle.get("exact_branch_exception") is False,
+                  "unapproved branch exception")
+          governance = profile.get("governance") or {}
+          for name in ("canonical_owner_is_authority",
+                       "transferred_owner_refs_are_non_authoritative",
+                       "forward_only_promotion"):
+              require(governance.get(name) is True, "governance flag not enforced")
+          require(governance.get("force_push_allowed") is False,
+                  "force pushes enabled")
+          require(profile.get("classification", {}).get("standalone") is True,
+                  "repository not standalone")
+          require(workspace.get("schema_version") == 1,
+                  "invalid workstation version")
+          workstation = workspace.get("workstation") or {}
+          require(workstation.get("primary_repository") == repo,
+                  "workstation repo identity mismatch")
+          require(workstation.get("codex_environment_policy")
+                  == "one repository per environment", "environment isolation weakened")
+          for name in ("notion", "linear", "lucid"):
+              item = (workspace.get("connectors") or {}).get(name) or {}
+              require(item.get("repository_lookup_key") == repo.split("/")[1],
+                      "missing matching integration key " + name)
+          require((workspace.get("authority") or {}).get("github")
+                  == "code, branch, SHA, PR and CI truth", "GitHub source authority drift")
+          require(contract.get("schema_version")
+                  == "codestra.production-orchestrator-contract.v1",
+                  "release policy schema mismatch")
+          require(contract.get("repository") == repo
+                  and contract.get("repository_id") == expected_id,
+                  "release contract stable owner ID mismatch")
+          require(contract.get("default_branch") == "main",
+                  "release default branch modified")
+          require(contract.get("runtime_mutation_authority") is False,
+                  "runtime mutations enabled")
+          require(contract.get("require_verified_commit") is True,
+                  "verified commit gate disabled")
+          require(contract.get("required_checks")
+                  == ["orchestrator-contract", check1, check2],
+                  "required checks changed")
+          for name in (
+              "external_effects_default", "live_email_delivery", "live_sms_delivery",
+              "live_pstn_dialing", "odoo_write", "n8n_external_delivery",
+              "live_trading", "payment_execution"
+          ):
+              require((contract.get("safety") or {}).get(name) is False,
+                      "production effect enabled: " + name)
+          print("CODESTRA_CONTROL_PLANE=PASS", repo, exact_sha)
+
+  codestra-control-plane:
+    name: codestra-control-plane
+    needs: validate-control-plane
+    runs-on: ubuntu-24.04
+    if: ${{ always() }}
+    steps:
+      - name: Preserve validated modern required status
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ needs.validate-control-plane.result }}" = "success"
+
+  codestra-slash-control-plane:
+    name: codestra/control-plane
+    needs: validate-control-plane
+    runs-on: ubuntu-24.04
+    if: ${{ always() }}
+    steps:
+      - name: Preserve validated legacy required status
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ needs.validate-control-plane.result }}" = "success"
