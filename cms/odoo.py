@@ -1,10 +1,10 @@
 import logging
 
-from django.utils import timezone
 
 from helpers.middleware_client import (
     MiddlewareConfigurationError,
     MiddlewareRequestError,
+    accepted_operation_id,
     submit_contact,
     submit_opportunity,
 )
@@ -12,24 +12,14 @@ from helpers.middleware_client import (
 logger = logging.getLogger(__name__)
 
 
-def _record_id(response_data):
-    if not isinstance(response_data, dict):
-        return ""
-    value = (
-        response_data.get("operation_id")
-        or response_data.get("command_id")
-        or response_data.get("id")
-    )
-    return str(value or "")[:128]
-
-
 def _deliver(instance, sender, payload, *, idempotency_key):
     try:
         response_data = sender(payload, idempotency_key=idempotency_key)
-        instance.odoo_sync_status = "synced"
-        instance.odoo_record_id = _record_id(response_data)
+        operation_id = accepted_operation_id(response_data)
+        instance.odoo_sync_status = "submitted"
+        instance.odoo_record_id = operation_id
         instance.odoo_last_error = ""
-        instance.odoo_synced_at = timezone.now()
+        instance.odoo_synced_at = None
         instance.save(
             update_fields=[
                 "odoo_sync_status",

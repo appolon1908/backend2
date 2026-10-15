@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "2.0.0",
+  "repository": "appolon1908-hue/backend2",
+  "classification": "backend-api",
+  "targetBranch": "codex/codestra-orbit-v2-backend2",
+  "adoptionMode": "contract-only",
+  "domain": null,
+  "domainStatus": "not-applicable",
+  "requirements": {
+    "renderedInterface": false,
+    "sharedHeaderFooter": false,
+    "loginLogoutPages": false,
+    "authBoundaryInventory": true,
+    "serviceAuthorization": true,
+    "browserTokenResponseProhibited": true,
+    "domainRegistry": true,
+    "correlationId": true,
+    "audit": true,
+    "rollback": true
+  },
+  "status": "branch-created",
+  "blockers": [
+    "Identify the authoritative application and API boundary served by this repository before adding session or identity endpoints.",
+    "Implement only the authentication and domain contracts this backend actually owns; do not fabricate website header, footer, or login-page code.",
+    "Prove tenant authorization, token validation, correlation, audit, migrations, observability, security tests, and rollback before runtime changes."
+  ]
+}

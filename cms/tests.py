@@ -28,9 +28,9 @@ class PublicLeadEndpointsTests(APITestCase):
         MIDDLEWARE_TENANT_ID="codestra",
     )
     @patch("helpers.middleware_client.requests.post")
-    def test_billing_interest_is_sent_to_odoo(self, post):
+    def test_billing_interest_records_middleware_acceptance_without_claiming_sync(self, post):
         post.return_value = Mock(
-            json=Mock(return_value={"operation_id": "op-42"}),
+            json=Mock(return_value={"operation_id": "bca126a0-e1db-40d0-a304-bfaf58c23fda", "state": "ACCEPTED"}),
             raise_for_status=Mock(),
         )
         response = self.client.post("/api/cms/electronic-billing-interest/", {
@@ -43,8 +43,8 @@ class PublicLeadEndpointsTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         interest = ElectronicBillingInterest.objects.get()
-        self.assertEqual(interest.odoo_sync_status, "synced")
-        self.assertEqual(interest.odoo_record_id, "op-42")
+        self.assertEqual(interest.odoo_sync_status, "submitted")
+        self.assertEqual(interest.odoo_record_id, "bca126a0-e1db-40d0-a304-bfaf58c23fda")
         self.assertEqual(post.call_args.kwargs["timeout"], 10)
 
     def test_billing_interest_requires_contact_consent(self):

@@ -1,4 +1,6 @@
 from rest_framework.viewsets import ViewSet
+from rest_framework.permissions import IsAuthenticated
+from CORE.permissions import ReadOnlyOrAdmin
 from .serializers import EventSerializer, CreateEventSerializer
 from rest_framework.response import Response
 from rest_framework import status
@@ -21,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class EventViewSet(ViewSet):
+    permission_classes = [IsAuthenticated, ReadOnlyOrAdmin]
 
 
     serializezr_class = EventSerializer
@@ -75,6 +78,8 @@ class EventViewSet(ViewSet):
         tags=["Calendar"],
     )
     def list(self, request):
+        if not settings.ODOO_API_TOKEN or not settings.ODOO_BASE_URL:
+            return Response({"error": "Calendar integration is unavailable."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         paginator = self.pagination_class()
         # events = Event.objects.all()
 
@@ -182,32 +187,11 @@ class EventViewSet(ViewSet):
         tags=["Calendar"],
     )
     def retrieve(self, request, pk=None):
-        # try:
-        #     event = Event.objects.get(pk=pk)
-        # except Event.DoesNotExist:
-        #     return Response(status=status.HTTP_404_NOT_FOUND)
-        # serializer = self.serializezr_class(event)
-        # return Response(serializer.data)
-        
-            try:
-
-                odoo_event = self.send_get_event_by_id_to_odoo(pk)
-
-                if odoo_event:
-
-                    return Response(odoo_event, status=status.HTTP_200_OK)
-               
-                else:
-                    return Response({"error": "Event not found in Odoo."}, status=status.HTTP_404_NOT_FOUND)
-            
-            except Exception as e:
-
-                # Manejar cualquier error durante la comunicación con Odoo o procesamiento
-                return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-        
-
+        # No authorized scoped detail adapter exists yet; do not call a missing helper.
+        return Response(
+            {"error": "Calendar detail integration is unavailable."},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
 
     @swagger_auto_schema(
         operation_description="Update a calendar event",

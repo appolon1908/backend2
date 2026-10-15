@@ -1,5 +1,6 @@
+import json
 import logging
-from uuid import uuid4
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 import requests
 from django.conf import settings
@@ -15,6 +16,10 @@ class MiddlewareRequestError(RuntimeError):
     pass
 
 
+class MiddlewareResponseError(MiddlewareRequestError):
+    pass
+
+
 def _config():
     base_url = getattr(settings, "MIDDLEWARE_BASE_URL", "").rstrip("/")
     token = getattr(settings, "MIDDLEWARE_ACCESS_TOKEN", "")
@@ -24,9 +29,30 @@ def _config():
     return base_url, token, tenant_id
 
 
+def accepted_operation_id(body):
+    """Validate an operation receipt without claiming provider readback."""
+    if not isinstance(body, dict):
+        raise MiddlewareResponseError("Middleware returned an invalid operation receipt")
+    value = body.get("operation_id")
+    state = body.get("state")
+    try:
+        operation_id = str(UUID(str(value)))
+    except (ValueError, TypeError, AttributeError) as exc:
+        raise MiddlewareResponseError("Middleware returned an invalid operation receipt") from exc
+    if not isinstance(state, str) or state.upper() not in {
+        "RECEIVED", "QUEUED", "SUBMITTED", "ACCEPTED", "UNKNOWN", "COMPLETED",
+    }:
+        raise MiddlewareResponseError("Middleware did not accept the operation")
+    return operation_id
+
+
 def _post(path, payload, *, idempotency_key):
     base_url, token, tenant_id = _config()
-    correlation_id = str(uuid4())
+    # A stable, tenant/path-scoped trace preserves the immutable retry envelope.
+    correlation_id = str(uuid5(
+        NAMESPACE_URL,
+        json.dumps([tenant_id, path, idempotency_key], separators=(",", ":")),
+    ))
     try:
         response = requests.post(
             f"{base_url}{path}",
@@ -47,10 +73,11 @@ def _post(path, payload, *, idempotency_key):
     try:
         body = response.json()
     except ValueError as exc:
-        raise MiddlewareRequestError("Middleware returned invalid JSON") from exc
+        raise MiddlewareResponseError("Middleware returned invalid JSON") from exc
 
     if not isinstance(body, dict):
-        raise MiddlewareRequestError("Middleware returned an invalid response")
+        raise MiddlewareResponseError("Middleware returned an invalid response")
+    accepted_operation_id(body)
     return body
 
 

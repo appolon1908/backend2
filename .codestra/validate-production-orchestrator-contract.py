@@ -26,10 +26,11 @@ RELEASE_VALIDATOR_PATH = ROOT / ".codestra/validate-release-intent.py"
 RELEASE_VALIDATOR_NON_SELF_REFERENTIAL_BINDINGS = frozenset(
     {
         "SHARED_PRODUCTION_VALIDATOR_SHA256",
+        "APPLICATION_PRODUCTION_VALIDATOR_SHA256",
+        "BACKEND2_PRODUCTION_VALIDATOR_SHA256",
         "KEYCLOAK_PRODUCTION_VALIDATOR_SHA256",
         "MIDDLEWARE_PRODUCTION_VALIDATOR_SHA256",
         "BACKEND_PRODUCTION_VALIDATOR_SHA256",
-        "BACKEND2_PRODUCTION_VALIDATOR_SHA256",
         "EXPECTED_REQUIRED_CHECK_SOURCE_CLOSURE_SHA256",
     }
 )
@@ -49,13 +50,14 @@ MONEYBEE_RELEASE_VALIDATOR_SECURITY_SHA256 = (
     "15dbaa6d571a1d1e72c09ca417cc9419"
     "8d8f21260babfae5eaedbdd46472b1ec"
 )
+APPLICATION_RELEASE_VALIDATOR_SECURITY_SHA256 = '5abce2ab2183777d22fe4d19f1581ec9756e5ee62bb8ca0eac73c834f9912d7c'
 EXPECTED_RELEASE_VALIDATOR_SECURITY_SHA256 = {
     "appolon1908-hue/Infustruction-repo": STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256,
     "appolon1908-hue/Keycloak": STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256,
     "appolon1908-hue/Middleware-": MIDDLEWARE_RELEASE_VALIDATOR_SECURITY_SHA256,
-    "appolon1908-hue/codestra": STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256,
+    "appolon1908/codestra": APPLICATION_RELEASE_VALIDATOR_SECURITY_SHA256,
     "appolon1908-hue/beyvra-backend": BACKEND_RELEASE_VALIDATOR_SECURITY_SHA256,
-    "appolon1908/backend2": "99be81d222574af7df51c27cdc76acb05f0f272894fd4b5938586c08430bc826",
+    "appolon1908/backend2": "2a65e0da920dbb99446c3a8fccb65901d3aef7b12b05d21e9e03bfe6f3089603",
     "appolon1908-hue/beyvra-frontend": STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256,
     "appolon1908-hue/scrapper": STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256,
     "appolon1908-hue/Breero.com": STANDARD_RELEASE_VALIDATOR_SECURITY_SHA256,
@@ -361,7 +363,7 @@ EXPECTED_IDENTITIES: dict[str, tuple[int, str, bool, bool]] = {
     "appolon1908-hue/Infustruction-repo": (1350724865, "infrastructure", True, True),
     "appolon1908-hue/Keycloak": (1347523366, "identity", True, False),
     "appolon1908-hue/Middleware-": (1347559071, "canonical-middleware", False, False),
-    "appolon1908-hue/codestra": (1319808791, "application", True, False),
+    "appolon1908/codestra": (1319808791, "application", True, False),
     "appolon1908-hue/beyvra-backend": (1319831182, "application", True, False),
     "appolon1908/backend2": (1319903950, "application", True, False),
     "appolon1908-hue/beyvra-frontend": (1320246591, "application", True, False),
@@ -384,7 +386,7 @@ EXPECTED_ARTIFACT_POLICIES: dict[
         "cosign",
         "oci",
     ),
-    "appolon1908-hue/codestra": (
+    "appolon1908/codestra": (
         ("ghcr.io/appolon1908-hue/codestra",),
         True,
         True,
@@ -540,7 +542,7 @@ APPROVED_COMPLEX_SCRIPT_SHA256: dict[str, dict[str, str]] = {
             "5cf3fa126d86b925d3a8412fd806b3a"
         ),
     },
-    "appolon1908-hue/codestra": {
+    "appolon1908/codestra": {
         "scripts/deploy/read-only-runtime-discovery.sh": "14cd8ce2653da1e284da480408ba071fd989279ba889a22d0b1f21ec887e1d13",
         "scripts/ci/check-runtime-discovery.mjs": "a0ccd39eb918093ba7715c9fc40fc9facaef6feef95210c46e9fead61323708f",
         "scripts/ci/test-runtime-discovery-fixture.sh": "a7b6557ed6dc927f6dc78a45440c3cf8deda6a2410a3bf94c70231be3bda751d",
@@ -648,7 +650,7 @@ APPROVED_COMPLEX_SCRIPT_DEPENDENCY_SCAN: dict[str, frozenset[str]] = {
         {"scripts/review-plan.sh", "scripts/validate.sh"}
     ),
     "appolon1908-hue/Middleware-": frozenset({"scripts/run_ci.sh"}),
-    "appolon1908-hue/codestra": frozenset(
+    "appolon1908/codestra": frozenset(
         {
             "scripts/ci/test-runtime-discovery-fixture.sh",
             "scripts/ci/test-runtime-discovery-host-proxy.sh",
@@ -735,6 +737,10 @@ APPROVED_CONTROL_PLANE_WORKFLOW_SHA256: dict[str, dict[str, str]] = {
     },
 }
 APPROVED_JOB_EXECUTABLE_CONFIGURATION_SHA256: dict[str, dict[str, str]] = {
+    # Repository-local, synthetic PostgreSQL fixture; any byte drift is denied.
+    "appolon1908/backend2": {
+        ".github/workflows/backend-postgres.yml": "d3fd12804698bd82094070f37bbab3f5e47e10bb09eaa850dc6bf8fd02a58121",
+    },
     "appolon1908-hue/Middleware-": {
         ".github/workflows/connector-runtime-api-ci.yml": "917ab06febf30f0d81146fc147794dace9510f7bb0a6fb903dd69b2244d4e1d0",
         ".github/workflows/connector-storage-ci.yml": "eada698e8756b76431a43f8d54d1aa192b9d964bca9a5e76d90476f35135bc7a",
@@ -914,7 +920,7 @@ REQUIRED_NATIVE_WORKFLOWS: dict[str, dict[str, str]] = {
         "signed_release": ".github/workflows/release.yml",
         "runtime_certification": ".github/workflows/production-runtime-certification.yml",
     },
-    "appolon1908-hue/codestra": {
+    "appolon1908/codestra": {
         "build_deploy": ".github/workflows/deploy.yml",
     },
 }
@@ -9342,6 +9348,12 @@ def main() -> int:
     validate_portfolio_control_plane_bindings()
     validate(contract)
     validate_negative_regressions(contract)
+    if contract.get("repository") in {"appolon1908/codestra", "appolon1908/backend2"}:
+        subprocess.run(
+            ["python3", str(ROOT / ".codestra/test_repository_identity.py")],
+            cwd=ROOT,
+            check=True,
+        )
     validate_intent_negative_regressions(contract)
     subprocess.run(
         ["python3", str(RELEASE_VALIDATOR_PATH), "--self-test"],

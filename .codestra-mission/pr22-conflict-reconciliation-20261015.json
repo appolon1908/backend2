@@ -1,0 +1,57 @@
+{
+  "repository": "appolon1908/backend2",
+  "issue": "https://github.com/appolon1908/backend2/issues/21",
+  "pr": "https://github.com/appolon1908/backend2/pull/22",
+  "task": "User-assigned reconciliation of PR22 conflicts with main",
+  "authorization": "User: so lets fix it, following the verified PR22 merge-conflict finding",
+  "owner_thread": "01a13baa-1d01-70a3-af7b-1afbd79c186f",
+  "sole_writer_for_this_reconciliation": "/root",
+  "worktree": "/tmp/backend2-pr22-merge-20261015",
+  "local_branch": "fix/pr22-merge-main-20261015",
+  "pr_branch": "feat/leadconnector-signed-intake-20261008",
+  "original_head": "d1e45a2642fc38b6ba32007872ffef2efe9eda35",
+  "merged_main": "4877bb6312a8210fb7927a91b070d974d76e359e",
+  "conflict_file": "CORE/urls.py",
+  "resolution": "Retain private tax/career document routes and LeadConnector route. Resolved application tree exactly equals main before adding this checkpoint; the feature was already integrated through PR23.",
+  "status": "LOCAL_VERIFICATION_PASSED_REMOTE_CHECKS_PENDING",
+  "active_linear_issue": "NONE_FOUND_FOR_THIS_SCOPE",
+  "notion_update": "No linked PR21 architecture page established; unrelated GH18 mission records preserved",
+  "existing_worktrees_preserved": true,
+  "runtime_assignment": null,
+  "database_lease": null,
+  "production_effects": false,
+  "runtime_changes": false,
+  "provider_messages_sent": false,
+  "independent_review": "Original head approved; updated head must satisfy current required review policy",
+  "verification": {
+    "sqlite": {
+      "tests": 88,
+      "skipped": 1,
+      "seconds": 2.792,
+      "result": "OK"
+    },
+    "postgresql16": {
+      "tests": 88,
+      "skipped": 0,
+      "seconds": 94.804,
+      "result": "OK",
+      "fixture": "Disposable Unix-socket-only cluster; synthetic roles/database; application container network none"
+    },
+    "repository_contract": {
+      "tests": 17,
+      "seconds": 1.806,
+      "result": "OK"
+    },
+    "django_check": "PASS",
+    "migration_drift": "NONE",
+    "git_diff_check": "PASS",
+    "test_image": "sha256:827c06f6a79bc8134a00e731e64919aea17dc848ffbecf41841b16b8ee19e6e5",
+    "logs": {
+      "sqlite-tests": "a50da02e0719b832e9abe43013eba3229198b57db01c068a992227eaa3b124ad",
+      "postgres-tests": "638f3169a525bc94f6e5eb29b7bc306a35956318be583f34da1ae4df1cd25948",
+      "system-check": "1e3e63f221bde88816c4a4ef7367691607b20cc1d194028a02ec9ae0586cf9b1",
+      "migration-drift": "a2bfa7b376c38062f77ce2b1e703876aaa04662f96355cdf5dc9d0d075302b05"
+    }
+  },
+  "updated_at": "2026-10-15T21:05:22.648855+00:00"
+}
