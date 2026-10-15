@@ -41,3 +41,14 @@ Backend: run the complete Django suite with `CORE.test_settings` for SQLite, the
 
 ## Rollback
 Disable the feature flag, restore the previous verified image and serving configuration, and retain the receipt tables. Do not drop production data, force-push branches or weaken checks to obtain a green status. The dedicated LAN preview is separate from the existing production containers.
+
+## PR22 reconciliation and HTTP server dependencies
+The 2026-10-15 reconciliation preserves main's private tax/career document routes
+and the existing LeadConnector HTTP route. The deployment remains Gunicorn with
+CORE.wsgi. CORE.asgi retains its HTTP application; no WebSocket protocol is
+configured. Local HTTP development uses Django's standard runserver. Daphne was
+removed from dependencies and INSTALLED_APPS because its transitive Twisted
+dependency blocked the unchanged security audit (CVE-2026-106454, no fixed release
+listed at verification). No vulnerability suppression or runtime activation was
+introduced. See the upstream advisory:
+https://github.com/twisted/twisted/security/advisories/GHSA-8pqf-f4m5-798g

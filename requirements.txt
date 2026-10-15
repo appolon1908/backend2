@@ -1,6 +1,5 @@
 celery==5.6.2
 channels==4.3.2
-daphne==4.2.2
 Django==5.2.17
 django-celery-beat==2.9.0
 django-ckeditor==6.7.3
