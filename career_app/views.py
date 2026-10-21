@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.viewsets import ViewSet, ModelViewSet
 from drf_yasg.utils import swagger_auto_schema
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAdminUser
 
 from notification.service import EmailService
 
@@ -63,7 +63,7 @@ class CareerViewSet(ViewSet):
         operation_summary="List all applications for a career opening",
         tags=["Career"],
     )
-    @action(methods=["GET"], detail=True)
+    @action(methods=["GET"], detail=True, permission_classes=[IsAdminUser])
     def applications(self, request, pk=None):
         career = Career.objects.filter(id=pk)
         
@@ -149,24 +149,25 @@ class CareerViewSet(ViewSet):
         operation_summary="List Candidate job applications",
         tags=["Career"]
     )
-    @action(methods=['GET'], detail=False, url_path="applications")
+    @action(methods=['GET'], detail=False, url_path="applications", permission_classes=[IsAdminUser])
     def list_applications(self, request):
         
         career_application = CareerApplication.objects.all()
         
-        return Response(CareerApplicationSerializer(career_application, many=True).data, status=status.HTTP_201_CREATED)
+        return Response(CareerApplicationSerializer(career_application, many=True).data, status=status.HTTP_200_OK)
         
     @swagger_auto_schema(
         operation_description="Retrieve Candidate job applications",
         operation_summary="Retrieve Candidate job applications",
         tags=["Career"]
     )
-    @action(methods=['GET'], detail=False, url_path="applications/(?P<pk>[a-z,A-Z,0-9]+)")
+    @action(methods=['GET'], detail=False, url_path="applications/(?P<pk>[a-z,A-Z,0-9]+)", permission_classes=[IsAdminUser])
     def retrieve_application(self, request, pk=None):
         
         career_application = CareerApplication.objects.filter(id=pk).first()
-        
-        return Response(CareerApplicationSerializer(career_application).data, status=status.HTTP_201_CREATED)
+        if career_application is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        return Response(CareerApplicationSerializer(career_application).data, status=status.HTTP_200_OK)
         
     
     @swagger_auto_schema(
@@ -252,7 +253,7 @@ class CareerViewSet(ViewSet):
         operation_summary="List answers for a career question",
         tags=["Career"]
     )
-    @action(methods=['GET'], detail=False, url_path="(?P<question_id>[a-z,A-Z,0-9]+)/answers")
+    @action(methods=['GET'], detail=False, url_path="(?P<question_id>[a-z,A-Z,0-9]+)/answers", permission_classes=[IsAdminUser])
     def get_career_question_answer(self, requst, question_id=None):
         question = Question.objects.filter(id=question_id)
         

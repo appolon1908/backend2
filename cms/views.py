@@ -23,14 +23,13 @@ from .serializers import (
             )
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAdminUser
 from drf_yasg.utils import swagger_auto_schema
 from django.db import transaction
 
 from notification.service import EmailService
 
 from rest_framework.decorators import action
-import requests
 from .odoo import sync_billing_interest, sync_contact, sync_taxpayer
      
 
@@ -213,10 +212,10 @@ class FAQsViewSet(ViewSet):
 
 class ContactUsViewSet(ViewSet):
     def get_permissions(self):
-        return [AllowAny()] if self.action == 'create' else super().get_permissions()
+        return [AllowAny()] if self.action == 'create' else [IsAdminUser()]
     
-    def get_queryset(self):
-        return super().get_queryset()
+    def list(self, request):
+        return Response(ContactUsSerializer(ContactUs.objects.all(), many=True).data)
     
     @swagger_auto_schema(
         operation_description="Contact Us form",
@@ -248,7 +247,8 @@ class ContactUsViewSet(ViewSet):
 
 
 class ElectronicBillingInterestViewSet(ViewSet):
-    permission_classes = [AllowAny]
+    def get_permissions(self):
+        return [AllowAny()] if self.action == "create" else [IsAdminUser()]
 
     @swagger_auto_schema(
         operation_description="Electronic billing consultation form",
@@ -272,8 +272,8 @@ class ElectronicBillingInterestViewSet(ViewSet):
         tags=["contact-us"],
     )
     def list(self, request):
-        queryset = ContactUs.objects.all()
-        serializer = ContactUsSerializer(queryset, many=True)
+        queryset = ElectronicBillingInterest.objects.all()
+        serializer = ElectronicBillingInterestSerializer(queryset, many=True)
         return Response(serializer.data)
     
     
@@ -351,129 +351,10 @@ class LogoViewSet(ViewSet):
 
 class TaxPayerViewSet(ViewSet):
     def get_permissions(self):
-        return [AllowAny()] if self.action == 'create' else super().get_permissions()
+        return [AllowAny()] if self.action == 'create' else [IsAdminUser()]
 
 
-    #Sent taxpayer form to odoo funtion:
-    def send_to_odoo(self, request, data):
-        """
-        This function is responsible for sending the data to Odoo after the taxpayer is created.
-        It receives the JSON directly from the request and processes it.
-        """
-        odoo_url = f'{settings.ODOO_BASE_URL}/contribuyente/register'
-    
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {settings.ODOO_API_TOKEN}'
-        }
-    
-        #Send data to Odoo in JSON format
-        odoo_data = {
-            "taxpayer_rnc": data.get("tax_payer_rnc"),
-            "taxpayer_name": data.get("name_of_tax_payer"),
-            "trade_name": data.get("trade_name"),
-            "taxpayer_telephone": data.get("tax_payer_telephone"),
-            "taxpayer_cell_phone": data.get("tax_payer_cell_phone"),
-            "taxpayer_email": data.get("tax_payer_email"),
-            "taxpayer_number": data.get("tax_payer_number"),
-            "taxpayer_sector": data.get("tax_payer_sector"),
-            "taxpayer_province": data.get("tax_payer_province"),
-            "address_reference": data.get("address_reference"),
-            "visiting_hours": data.get("visiting_hours"),
-            "representation_rnc": data.get("representation_rnc"),
-            "name_of_representative": data.get("name_of_representative"),
-            "representative_phone": data.get("representative_phone"),
-            "representative_cell_phone": data.get("representative_cell_phone"),
-            "representative_email": data.get("representative_email"),
-            "street_of_warehouse": data.get("street_of_warehouse"),
-            "store_or_warehouse_number": data.get("store_or_warehouse_number"),
-            "province_of_warehouse": data.get("province_of_warehouse"),
-            "warehouse_reference": data.get("warehouse_reference"),
-            "local_administration": data.get("local_administration"),
-            "warehouse_sector": data.get("warehouse_sector"),
-            "operation_carried_out_in_premise": data.get("operation_carried_out_in_premise"),
-    
-            #If the media file is present, use the URL
-            "media_file": data.get("media_file") if data.get("media_file") else None,
-            #"odoo_id": request.user.odoo_id
-        }
-    
-       
-        try:
-            response = requests.post(odoo_url, headers=headers, json=odoo_data, timeout=10)
-            
-            if response.status_code == 200:
-              
-                return response.json()
-            else:
-                
-                print(f"Error in Odoo. Status Code: {response.status_code}, Mensaje: {response.text}")
-                raise Exception(f"Error sending data to Odoo: {response.text}")
-        
-        except requests.exceptions.RequestException as e:
-            
-            print(f"Error sending data to Odoo: {str(e)}")
-            raise Exception(f"Odoo connection error: {str(e)}")
-    
-    #to update.
-    def send_update_to_odoo(self, request, data):
-        
-        """
-        This feature sends the updated data to Odoo.
-        """
-        odoo_url = f'{settings.ODOO_BASE_URL}/contribuyente/register'
-
-        headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {settings.ODOO_API_TOKEN}'
-        }
-
-        
-        odoo_data = {
-        "taxpayer_rnc": data.get("tax_payer_rnc"),
-        "taxpayer_name": data.get("name_of_tax_payer"),
-        "trade_name": data.get("trade_name"),
-        "taxpayer_telephone": data.get("tax_payer_telephone"),
-        "taxpayer_cell_phone": data.get("tax_payer_cell_phone"),
-        "taxpayer_email": data.get("tax_payer_email"),
-        "taxpayer_number": data.get("tax_payer_number"),
-        "taxpayer_sector": data.get("tax_payer_sector"),
-        "taxpayer_province": data.get("tax_payer_province"),
-        "address_reference": data.get("address_reference"),
-        "visiting_hours": data.get("visiting_hours"),
-        "representation_rnc": data.get("representation_rnc"),
-        "name_of_representative": data.get("name_of_representative"),
-        "representative_phone": data.get("representative_phone"),
-        "representative_cell_phone": data.get("representative_cell_phone"),
-        "representative_email": data.get("representative_email"),
-        "street_of_warehouse": data.get("street_of_warehouse"),
-        "store_or_warehouse_number": data.get("store_or_warehouse_number"),
-        "province_of_warehouse": data.get("province_of_warehouse"),
-        "warehouse_reference": data.get("warehouse_reference"),
-        "local_administration": data.get("local_administration"),
-        "warehouse_sector": data.get("warehouse_sector"),
-        "operation_carried_out_in_premise": data.get("operation_carried_out_in_premise"),
-
-    
-        "media_file": data.get("media_file") if data.get("media_file") else None,
-        "odoo_id": request.user.odoo_id
-    }
-
-      
-        try:
-            response = requests.post(odoo_url, headers=headers, json=odoo_data, timeout=10)
-        
-            if response.status_code == 200:
-              
-                return response.json()
-            else:
-                print(f"Error in Odoo. Status Code: {response.status_code}, Mensaje: {response.text}")
-                raise Exception(f"Error sending data to Odoo: {response.text}")
-    
-        except requests.exceptions.RequestException as e:
-            print(f"Odoo request failed: {str(e)}")
-            raise Exception(f"Odoo connection error: {str(e)}")
-
+    # Effect-capable CRM writes are submitted through Middleware in cms.odoo.
      
 
     #endpoints

@@ -12,8 +12,8 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.11"
           cache: pip
@@ -34,16 +34,16 @@ jobs:
           python -m compileall -q .
           python manage.py check
           python manage.py makemigrations --check --dry-run
-          python manage.py test auth_app.tests payment_app.tests
+          python manage.py test
       - run: bandit -q -lll -r . -x './static,./media,./*/migrations'
       - run: pip-audit -r requirements.txt
 
   container:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - run: docker build -t backend2-review:${{ github.sha }} .
-      - uses: aquasecurity/trivy-action@0.35.0
+      - uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           image-ref: backend2-review:${{ github.sha }}
           severity: CRITICAL,HIGH

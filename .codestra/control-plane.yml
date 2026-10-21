@@ -1,0 +1,52 @@
+version: 1
+product: "Codestra Backend"
+authority:
+  development_branch: development
+  testing_branch: testing
+  staging_branch: staging
+  production_branch: production
+  governance_branch: workstation/governance-control-plane
+  ci_runner_label: codestra-backend
+promotion:
+  chain: [development, testing, staging, production]
+  require_exact_sha: true
+  require_clean_worktree: true
+  require_review: true
+  force_push_allowed: false
+effects:
+  production_go: false
+  live_capabilities_enabled: false
+  external_effects_enabled: false
+sections:
+  - id: ws01-core
+    name: "Foundation & Domain Core"
+    branch: workstation/ws01-core
+    status: available
+  - id: ws02-api
+    name: "Canonical API & OpenAPI"
+    branch: workstation/ws02-api
+    status: available
+  - id: ws03-security
+    name: "Identity, RBAC & Security"
+    branch: workstation/ws03-security
+    status: available
+  - id: ws04-deployment
+    name: "Database, Migrations & Deployment"
+    branch: workstation/ws04-deployment
+    status: available
+  - id: ws05-observability
+    name: "Observability & Recovery"
+    branch: workstation/ws05-observability
+    status: available
+  - id: ws06-testing
+    name: "Testing & Exact-SHA Certification"
+    branch: workstation/ws06-testing
+    status: available
+  - id: ws07-saas
+    name: "Provider & Platform Integrations"
+    branch: workstation/ws07-saas
+    status: available
+  - id: ws08-release
+    name: "Release & Promotion"
+    branch: workstation/ws08-release
+    status: available

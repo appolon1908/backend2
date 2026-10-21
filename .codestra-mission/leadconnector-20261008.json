@@ -1,0 +1,30 @@
+{
+  "repository": "appolon1908/backend2",
+  "issue": "https://github.com/appolon1908/backend2/issues/21",
+  "base_sha": "50fa78a972635222fb93e568eee931839a5f1215",
+  "branch": "feat/leadconnector-signed-intake-20261008",
+  "worktree": "/srv/codestra/verification/leadconnector-backend",
+  "worker_node": "crm",
+  "role": "Builder",
+  "sole_writer": "ChatGPT current approved widget implementation",
+  "authorization": "User: Approve continue implement",
+  "status": "CODE_VERIFIED_REVIEW_PENDING",
+  "production_deployed": false,
+  "independent_review": "PENDING",
+  "carrier_approval": "NOT_VERIFIED",
+  "outbound_effects": false,
+  "preserved_other_worktrees": true,
+  "evidence_directory": "/srv/codestra/verification/leadconnector-evidence",
+  "updated_at": "2026-10-08T16:07:01.994775+00:00",
+  "tests": {
+    "full_postgresql_suite": {
+      "passed": 49,
+      "failed": 0,
+      "skipped": 0
+    },
+    "django_check": "PASS",
+    "migration_drift": "NONE"
+  },
+  "test_log_sha256": "c81247dd4507e4dbabe8274c2b275c1d84c062dc77c7642e68abc65ce8ff5edc",
+  "verified_at": "2026-10-08T16:09:20.684789+00:00"
+}

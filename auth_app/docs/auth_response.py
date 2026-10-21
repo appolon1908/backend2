@@ -21,16 +21,10 @@ login_success_response = openapi.Schema(
                 'plan_type': openapi.Schema(type=openapi.TYPE_STRING),
                 'trial_expiry_date': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME),
             }
-        ),
-        'token': openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'refresh': openapi.Schema(type=openapi.TYPE_STRING),
-                'access': openapi.Schema(type=openapi.TYPE_STRING),
-            }
         )
     }
 )
+
 
 login_error_response = openapi.Schema(
     type=openapi.TYPE_OBJECT,
@@ -41,7 +35,7 @@ login_error_response = openapi.Schema(
 
 
 LOGIN_RESPONSE = {
-    201 : openapi.Response(
+    200 : openapi.Response(
         description="User logged in successfully",
         schema=login_success_response
     ),
