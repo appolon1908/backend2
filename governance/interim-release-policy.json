@@ -18,6 +18,16 @@
       "context": "PostgreSQL regression",
       "integration_id": 15368,
       "workflow": ".github/workflows/backend-postgres.yml"
+    },
+    {
+      "context": "hierarchy-governance",
+      "integration_id": 15368,
+      "workflow": ".github/workflows/codestra-hierarchy-governance.yml"
+    },
+    {
+      "context": "orchestrator-contract",
+      "integration_id": 15368,
+      "workflow": ".github/workflows/production-orchestrator-contract.yml"
     }
   ],
   "replaces_contexts": [
